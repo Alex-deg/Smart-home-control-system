@@ -38,10 +38,22 @@ crow::response API::getDevices() {
     return res;
 }
 
-bool API::checkUser()
+crow::response API::checkUser(const std::string &username, const std::string &password)
 {
-
-    return false;
+    crow::response res;
+    res.add_header("Content-Type", "application/json; charset=utf-8");
+    json resp;
+    if (db.checkUserAuthentication(username, password)){
+        resp["status"] = true;
+        resp["message"] = "Аутентификация прошла успешно";
+        res.write(json(resp).dump(2));  
+    }
+    else{
+        resp["status"] = false;
+        resp["message"] = "У Вас нет учетной записи.\nХотите зарегистрироваться?";
+        res.write(json(resp).dump(2));  
+    }
+    return res;
 }
 
 std::string API::handleStatus() {
@@ -61,8 +73,16 @@ void API::setupRoutes() {
         return this->handleStatus();
     });
     
-    CROW_ROUTE(app, "/api/users")([this](){
+    CROW_ROUTE(app, "/api/users/auth").methods("POST"_method)
+    ([this](const crow::request& req){
+        auto json = crow::json::load(req.body);
         
-        return "List of users";
+        if (!json || !json.has("username") || !json.has("password")) {
+            return crow::response(400, "Invalid JSON or missing fields");
+        }
+        
+        std::string username = json["username"].s();
+        std::string password = json["password"].s();
+        return checkUser(username, password);
     });
 }

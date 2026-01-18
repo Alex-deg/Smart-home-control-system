@@ -70,5 +70,5 @@ public:
     void addDevice(const std::string &name, int device_type_id, const std::string &mqtt_topic,
                     const std::string &location="kitchen", bool status=true); 
     std::vector<json> getListOfDevices();
-    bool checkUserAuthentication();
+    bool checkUserAuthentication(const std::string &username, const std::string &password);
 };

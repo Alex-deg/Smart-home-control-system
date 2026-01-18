@@ -326,8 +326,21 @@ std::vector<json> DataBase::getListOfDevices()
     return list_of_devices;
 }
 
-bool DataBase::checkUserAuthentication()
+bool DataBase::checkUserAuthentication(const std::string &username, const std::string &password)
 {
-    
-    return false;
+    std::string sql = R"(
+        SELECT 
+            users.username,
+            users.password 
+        FROM users WHERE username = ?
+    )";
+
+    QueryResult response = executeQuery(sql, {username});
+
+    if (response.size() == 0)
+        return false;
+    if (response.get<std::string>(0, "password") != password)
+        return false;
+
+    return true;
 }

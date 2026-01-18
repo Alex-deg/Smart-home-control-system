@@ -9,7 +9,7 @@ private:
     crow::SimpleApp app;
     std::string handleRoot();
     crow::response getDevices();
-    bool checkUser();
+    crow::response checkUser(const std::string &username, const std::string &password);
     std::string handleStatus();
     void setupRoutes();
     DataBase db;
