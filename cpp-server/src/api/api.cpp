@@ -38,7 +38,7 @@ crow::response API::getDevices() {
     return res;
 }
 
-crow::response API::checkUser(const std::string &username, const std::string &password)
+crow::response API::auth(const std::string &username, const std::string &password)
 {
     crow::response res;
     res.add_header("Content-Type", "application/json; charset=utf-8");
@@ -46,13 +46,31 @@ crow::response API::checkUser(const std::string &username, const std::string &pa
     if (db.checkUserAuthentication(username, password)){
         resp["status"] = true;
         resp["message"] = "Аутентификация прошла успешно";
-        res.write(json(resp).dump(2));  
     }
     else{
         resp["status"] = false;
-        resp["message"] = "У Вас нет учетной записи.\nХотите зарегистрироваться?";
-        res.write(json(resp).dump(2));  
+        resp["message"] = "У Вас нет учетной записи.\nДля регистрации нажмите кнопку 'Регистрация'";
     }
+    res.write(json(resp).dump(2)); 
+    return res;
+}
+
+crow::response API::registration(const std::string &username, const std::string &password, 
+                                 long int tg_chat_id){
+    crow::response res;
+    res.add_header("Content-Type", "application/json; charset=utf-8");
+    json resp;
+    try{
+        db.addUser(username, password, tg_chat_id);
+        resp["status"] = true;
+        resp["message"] = "Регистрация прошла успешно!";
+    }
+    catch(DataBaseException &e){
+        std::cerr << "Error: " << e.what() << std::endl;
+        resp["status"] = false;
+        resp["message"] = "Регистрация прошла с ошибкой";
+    }            
+    res.write(json(resp).dump(2));           
     return res;
 }
 
@@ -83,6 +101,22 @@ void API::setupRoutes() {
         
         std::string username = json["username"].s();
         std::string password = json["password"].s();
-        return checkUser(username, password);
+
+        return auth(username, password);
+    });
+
+    CROW_ROUTE(app, "/api/users/registration").methods("POST"_method)
+    ([this](const crow::request& req){
+        auto json = crow::json::load(req.body);
+        
+        if (!json || !json.has("username") || !json.has("password") || !json.has("tg_chat_id")) {
+            return crow::response(400, "Invalid JSON or missing fields");
+        }
+        
+        std::string username = json["username"].s();
+        std::string password = json["password"].s();
+        long int tg_chat_id = json["tg_chat_id"].i();
+
+        return registration(username, password, tg_chat_id);
     });
 }

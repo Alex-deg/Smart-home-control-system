@@ -7,18 +7,25 @@ from telebot.types import ReplyKeyboardMarkup, ReplyKeyboardRemove
 import os
 import json
 from dotenv import load_dotenv
+import time
 
 # Загружаем .env
 load_dotenv()
 
 class states:
-    WAITING_USER_NAME_AND_PASSWORD = 0
+    WAITING_USERS_NAME = 0
+    WAITING_USERS_PASSWORD = 1
+    WAITING_AUTHENTIFICATION_RESPONSE = 2
+    AUTHORIZED = 3
 
 
 bot = telebot.TeleBot(os.getenv("TELEGRAM_BOT_TOKEN", ""))
 BASE_API_URL = os.getenv("API_BASE_URL", "")
 
-is_user_authorized = False
+# словарь состояний пользователей
+users_states = {}
+# временные данные
+temp_data = {}
 
 def make_main_menu():
     markup = types.InlineKeyboardMarkup()
@@ -27,6 +34,22 @@ def make_main_menu():
     btn2 = types.InlineKeyboardButton('Регистрация', callback_data='registration')
     markup.row(btn2)
     return markup
+
+def get_username_and_password(callback):
+    users_states[callback.message.chat.id] = states.WAITING_USERS_NAME
+    bot.send_message(callback.message.chat.id, 'Введите логин:')
+    while True:
+        time.sleep(0.5)
+        if users_states[callback.message.chat.id] :
+            break
+    username = temp_data[callback.message.chat.id]['username']
+    bot.send_message(callback.message.chat.id, 'Введите пароль:')
+    while True:
+        time.sleep(0.5)
+        if users_states[callback.message.chat.id] == states.WAITING_AUTHENTIFICATION_RESPONSE:
+            break
+    password = temp_data[callback.message.chat.id]['password']
+    return username, password
 
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -46,16 +69,30 @@ def callback_message(callback):
         else:
             bot.send_message(callback.message.chat.id, 'Технические неполадки :(')
     elif callback.data == 'log_in':
+        username, password = get_username_and_password(callback)
         url = BASE_API_URL + "/api/users/auth"
-        username = "user"
-        password = "password"
         auth_data = {'username' : username, 'password' : password}
         response = requests.post(url, json=auth_data)
         data = response.json()
         if data["status"]:
-            is_user_authorized = True
+            users_states[callback.message.chat.id] = states.AUTHORIZED
         bot.send_message(callback.message.chat.id, data["message"])
     elif callback.data == 'registration':
-        print('registration')
+        username, password = get_username_and_password(callback)
+        url = BASE_API_URL + "/api/users/registration"
+        registration_data = {'username' : username, 'password' : password, \
+                             'tg_chat_id' : callback.message.chat.id}
+        response = requests.post(url, json=registration_data)
+        data = response.json()
+        bot.send_message(callback.message.chat.id, data["message"])
+
+@bot.message_handler(content_types=['text'])
+def handle_text(message):
+    if users_states[message.chat.id] == states.WAITING_USERS_NAME:
+        users_states[message.chat.id] = states.WAITING_USERS_PASSWORD
+        temp_data[message.chat.id] = {'username' : message.text}
+    elif users_states[message.chat.id] == states.WAITING_USERS_PASSWORD:
+        users_states[message.chat.id] = states.WAITING_AUTHENTIFICATION_RESPONSE
+        temp_data[message.chat.id] = {'password' : message.text}
 
 bot.polling(none_stop=True)
