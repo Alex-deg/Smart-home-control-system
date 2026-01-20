@@ -13,10 +13,13 @@ import time
 load_dotenv()
 
 class states:
-    WAITING_USERS_NAME = 0
-    WAITING_USERS_PASSWORD = 1
-    WAITING_AUTHENTIFICATION_RESPONSE = 2
-    AUTHORIZED = 3
+    WAITING_USERS_NAME = 0                  # Ожидание ввода имени пользователя \ 
+                                            #                                     authentification
+    WAITING_USERS_PASSWORD = 1              # Ожидание ввода пароля             /
+    WAITING_AUTHENTIFICATION_RESPONSE = 2   # Ожидание результата аутентификации
+    AUTHORIZED = 3                          # Пользователь авторизован
+    WAITING_ACTUATOR_DEVICE_ID = 4          # Ожидание ввода номера устройства для одиночного действия
+    ACTUATOR_DEVICE_ID_RECIEVED = 5         # ID устройства для взаимодействия получен
 
 
 bot = telebot.TeleBot(os.getenv("TELEGRAM_BOT_TOKEN", ""))
@@ -50,7 +53,7 @@ def get_username_and_password(callback):
     bot.send_message(callback.message.chat.id, 'Введите логин:')
     while True:
         time.sleep(0.5)
-        if users_states[callback.message.chat.id] :
+        if users_states[callback.message.chat.id] == states.WAITING_USERS_PASSWORD:
             break
     username = temp_data[callback.message.chat.id]['username']
     bot.send_message(callback.message.chat.id, 'Введите пароль:')
@@ -74,9 +77,10 @@ def make_device_table_from_json(json_data):
     i = 1
     for device in json_data:
         s += '-' * (10 + max_len_device_name + max_len_device_type + len(json_data)) + '\n'
-        s += '| ' + i + ' ' * len(json_data) + '| ' + device['device_name'] + \
+        s += '| ' + str(i) + ' ' * len(json_data) + '| ' + device['device_name'] + \
              ' ' * (max_len_device_name - len(device['device_name']) + 1) \
            + '| ' + device['type'] + ' ' * (max_len_device_type - len(device['type']) + 1) + '|\n' 
+        i += 1
     return s + "```\n"
 
 @bot.message_handler(commands=['start'])
@@ -105,12 +109,19 @@ def callback_message(callback):
         data = response.json()
         bot.send_message(callback.message.chat.id, data["message"])
     elif callback.data == 'single_action':
-        url = BASE_API_URL + "/api/devices"
+        url = BASE_API_URL + "/api/devices/actuators"
         response = requests.get(url)
         if response.status_code == 200:
             bot.send_message(callback.message.chat.id, 'Список устройств для взаимодействия:')
             bot.send_message(callback.message.chat.id, make_device_table_from_json(response.json()), parse_mode='MarkdownV2')
             bot.send_message(callback.message.chat.id, 'Выберите устройство')
+            users_states[callback.message.chat.id] = states.WAITING_ACTUATOR_DEVICE_ID
+            while True:
+                time.sleep(0.5)
+                if users_states[callback.message.chat.id] == states.ACTUATOR_DEVICE_ID_RECIEVED:
+                    break
+            actuator_device_id = temp_data[callback.message.chat.id]['actuator_device_id']
+            print(f"actuator_device_id = {actuator_device_id}")
         else:
             bot.send_message(callback.message.chat.id, 'Технические неполадки :(')
 
@@ -122,5 +133,9 @@ def handle_text(message):
     elif users_states[message.chat.id] == states.WAITING_USERS_PASSWORD:
         users_states[message.chat.id] = states.WAITING_AUTHENTIFICATION_RESPONSE
         temp_data[message.chat.id] = {'password' : message.text}
+    elif users_states[message.chat.id] == states.WAITING_ACTUATOR_DEVICE_ID:
+        # сделать проверку на дурака (возможно пользователь ввведет не число)
+        users_states[message.chat.id] = states.ACTUATOR_DEVICE_ID_RECIEVED
+        temp_data[message.chat.id] = {'actuator_device_id' : int(message.text)}
 
 bot.polling(none_stop=True)
