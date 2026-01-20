@@ -14,24 +14,37 @@ void API::run(int _port, bool multithreaded) {
     }
 }
 
-std::string API::handleRoot() {
-    return R"(
-        <html>
-        <head><title>SmartHome</title></head>
-        <body>
-            <h1>Smart home system control</h1>
-            <p>API server is working</p>
-            <ul>
-                <li><a href="/api/status">System status</a></li>
-                <li><a href="/api/devices">Devices</a></li>
-            </ul>
-        </body>
-        </html>
-        )";
-}
+// std::string API::handleRoot() {
+//     return R"(
+//         <html>
+//         <head><title>SmartHome</title></head>
+//         <body>
+//             <h1>Smart home system control</h1>
+//             <p>API server is working</p>
+//             <ul>
+//                 <li><a href="/api/status">System status</a></li>
+//                 <li><a href="/api/devices">Devices</a></li>
+//             </ul>
+//         </body>
+//         </html>
+//         )";
+// }
 
 crow::response API::getDevices() {
     auto devices = db.getListOfDevices();
+    crow::response res;
+    res.add_header("Content-Type", "application/json; charset=utf-8");
+    res.write(json(devices).dump(2));  
+    return res;
+}
+
+crow::response API::getActuatorsDevices()
+{
+    auto devices = db.getListOfDevices();
+    for (int i = 0; i < devices.size(); i++){
+        if (devices[i]["role"] != "actuator")
+            devices.erase(devices.begin() + i);
+    }
     crow::response res;
     res.add_header("Content-Type", "application/json; charset=utf-8");
     res.write(json(devices).dump(2));  
@@ -74,23 +87,29 @@ crow::response API::registration(const std::string &username, const std::string 
     return res;
 }
 
-std::string API::handleStatus() {
-    return "System status: Online";
+crow::response API::singleAction(const std::string &device_name, const std::string &action)
+{
+    crow::response res;
+    res.add_header("Content-Type", "application/json; charset=utf-8");
+    json resp;
+    resp["message"] = "Аn action " + action + " was performed with the device " + device_name;
+    res.write(json(resp).dump(2));
+    return res;
 }
 
 void API::setupRoutes() {
-    CROW_ROUTE(app, "/")([this](){
-        return this->handleRoot();
-    });
+    // CROW_ROUTE(app, "/")([this](){
+    //     return this->handleRoot();
+    // });
     
     CROW_ROUTE(app, "/api/devices")([this](){
         return this->getDevices();
     });
     
-    CROW_ROUTE(app, "/api/status")([this](){
-        return this->handleStatus();
+    CROW_ROUTE(app, "/api/devices/actuators")([this](){
+        return this->getActuatorsDevices();
     });
-    
+
     CROW_ROUTE(app, "/api/users/auth").methods("POST"_method)
     ([this](const crow::request& req){
         auto json = crow::json::load(req.body);
@@ -119,4 +138,19 @@ void API::setupRoutes() {
 
         return registration(username, password, tg_chat_id);
     });
+
+    // CROW_ROUTE(app, "/api/actions/single")
+    // ([this](const crow::request& req){
+        // auto json = crow::json::load(req.body);
+        
+        // if (!json || !json.has("username") || !json.has("password") || !json.has("tg_chat_id")) {
+        //     return crow::response(400, "Invalid JSON or missing fields");
+        // }
+        
+        // std::string username = json["username"].s();
+        // std::string password = json["password"].s();
+        // long int tg_chat_id = json["tg_chat_id"].i();
+
+        // return registration(username, password, tg_chat_id);
+    // });
 }

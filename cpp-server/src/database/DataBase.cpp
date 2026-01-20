@@ -219,14 +219,26 @@ void DataBase::createDeviceTable(){
 }
 
 void DataBase::createDeviceTypeTable(){
+    // role - роль устройства, например, датчик или актор
     executeRequest(R"(
         CREATE TABLE device_types (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE NOT NULL, 
+            name TEXT UNIQUE NOT NULL,   
+            role TEXT NOT NULL, 
             description TEXT,
             capabilities JSON 
         ); 
     )");
+}
+
+void DataBase::updateDeviceType(int device_id, int device_type_id) {
+    std::string sql = R"(
+        UPDATE devices 
+        SET device_type_id = ?
+        WHERE id = ?
+    )";
+    
+    executeRequest(sql, {device_type_id, device_id});
 }
 
 void DataBase::createTriggerTable(){
@@ -251,9 +263,9 @@ void DataBase::createScenarioTable(){
     )");
 }
 
-void DataBase::deleteUsersTable(){
+void DataBase::deleteDeviceTypesTable(){
     std::string sql = R"(
-        DROP TABLE users;
+        DROP TABLE device_types;
     )";
     executeRequest(sql);
 }
@@ -284,16 +296,16 @@ void DataBase::addUser(const std::string& user_name, const std::string& password
 
 }
 
-void DataBase::addDeviceType(const std::string &name, const std::string &description, const json &config){
+void DataBase::addDeviceType(const std::string &name, const std::string &role, const std::string &description, const json &config){
     
     std::string sql = R"(
-        INSERT INTO device_types (name, description, capabilities)
-        VALUES (?, ?, ?)
+        INSERT INTO device_types (name, role, description, capabilities)
+        VALUES (?, ?, ?, ?)
     )";
     
     std::string config_str = config.dump();
     
-    executeRequest(sql, {name, description, config_str});
+    executeRequest(sql, {name, role, description, config_str});
 }
 
 void DataBase::addDevice(const std::string &name, int device_type_id, const std::string &mqtt_topic, const std::string &location, bool status){
@@ -311,7 +323,8 @@ std::vector<json> DataBase::getListOfDevices()
     std::string sql = R"(
         SELECT 
             d.name as device_name,
-            dt.name as device_type
+            dt.name as device_type,
+            dt.role as device_role  
         FROM devices d
         JOIN device_types dt ON d.device_type_id = dt.id
         ORDER BY d.name;
@@ -321,6 +334,7 @@ std::vector<json> DataBase::getListOfDevices()
     for (size_t i = 0; i < response.rows.size(); i++){
         device["device_name"] = response.get<std::string>(i, "device_name");
         device["type"] = response.get<std::string>(i, "device_type");
+        device["role"] = response.get<std::string>(i, "device_role");
         list_of_devices.push_back(device);
     }
     return list_of_devices;

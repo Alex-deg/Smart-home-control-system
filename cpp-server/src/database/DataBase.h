@@ -61,14 +61,16 @@ public:
     void createDeviceTypeTable();
     void createTriggerTable();
     void createScenarioTable();
-    void deleteUsersTable();
+    void deleteDeviceTypesTable();
     void clearDeviceTypesTable();
+    void updateDeviceType(int device_id, int device_type_id);
     void addUser(const std::string& user_name, const std::string& password,
                        long int tg_chat_id = 1, const std::string& role="user",
                        const std::string& status="active");
-    void addDeviceType(const std::string &name, const std::string &description, const json &config);
+    void addDeviceType(const std::string &name, const std::string &role, 
+                       const std::string &description, const json &config);
     void addDevice(const std::string &name, int device_type_id, const std::string &mqtt_topic,
-                    const std::string &location="kitchen", bool status=true); 
+                   const std::string &location="kitchen", bool status=true); 
     std::vector<json> getListOfDevices();
     bool checkUserAuthentication(const std::string &username, const std::string &password);
 };
