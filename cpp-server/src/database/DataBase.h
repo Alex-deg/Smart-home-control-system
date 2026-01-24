@@ -61,16 +61,22 @@ public:
     void createDeviceTypeTable();
     void createTriggerTable();
     void createScenarioTable();
+    void createMQTTMessagesTable();
     void deleteDeviceTypesTable();
     void clearDeviceTypesTable();
     void updateDeviceType(int device_id, int device_type_id);
+    void updateDeviceStatus(const std::string &payload, const std::string &topic_pattern);
     void addUser(const std::string& user_name, const std::string& password,
                        long int tg_chat_id = 1, const std::string& role="user",
                        const std::string& status="active");
+    void addMQTTMessage(const std::string &topic, const std::string &payload,
+                        bool incoming);
     void addDeviceType(const std::string &name, const std::string &role, 
                        const std::string &description, const json &config);
     void addDevice(const std::string &name, int device_type_id, const std::string &mqtt_topic,
                    const std::string &location="kitchen", bool status=true); 
     std::vector<json> getListOfDevices();
     bool checkUserAuthentication(const std::string &username, const std::string &password);
+    std::string getMQTTTopic(unsigned int id);
+    //int getIDFromDeviceName(const std::string &device_name);
 };

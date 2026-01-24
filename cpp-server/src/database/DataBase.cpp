@@ -225,11 +225,12 @@ void DataBase::createDeviceTypeTable(){
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT UNIQUE NOT NULL,   
             role TEXT NOT NULL, 
-            description TEXT,
-            capabilities JSON 
+            capabilities TEXT, 
+            description TEXT            
         ); 
     )");
 }
+
 
 void DataBase::updateDeviceType(int device_id, int device_type_id) {
     std::string sql = R"(
@@ -239,6 +240,15 @@ void DataBase::updateDeviceType(int device_id, int device_type_id) {
     )";
     
     executeRequest(sql, {device_type_id, device_id});
+}
+
+void DataBase::updateDeviceStatus(const std::string &payload, const std::string &topic_pattern){
+    std::string sql = R"(
+        UPDATE devices 
+        SET status = ?
+        WHERE mqtt_topic LIKE ?
+    )";
+    executeRequest(sql, {payload, topic_pattern});      
 }
 
 void DataBase::createTriggerTable(){
@@ -262,6 +272,19 @@ void DataBase::createScenarioTable(){
         ); 
     )");
 }
+
+void DataBase::createMQTTMessagesTable(){
+    executeRequest(R"(
+        CREATE TABLE mqtt_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            topic TEXT NOT NULL,
+            payload TEXT NOT NULL,
+            direction TEXT NOT NULL,
+            created_at TEXT
+        ); 
+    )");
+}
+
 
 void DataBase::deleteDeviceTypesTable(){
     std::string sql = R"(
@@ -296,16 +319,28 @@ void DataBase::addUser(const std::string& user_name, const std::string& password
 
 }
 
+void DataBase::addMQTTMessage(const std::string &topic, const std::string &payload,
+                              bool incoming){
+    std::string sql = R"(
+        INSERT INTO mqtt_messages (topic, payload, direction, created_at)
+        VALUES (?, ?, ?, datetime('now'))
+    )";
+
+    executeRequest(sql, {
+        topic,
+        payload,
+        incoming ? "incoming" : "outgoing"
+    });
+}
+
 void DataBase::addDeviceType(const std::string &name, const std::string &role, const std::string &description, const json &config){
     
     std::string sql = R"(
-        INSERT INTO device_types (name, role, description, capabilities)
+        INSERT INTO device_types (name, role, capabilities, description)
         VALUES (?, ?, ?, ?)
     )";
-    
-    std::string config_str = config.dump();
-    
-    executeRequest(sql, {name, role, description, config_str});
+        
+    executeRequest(sql, {name, role, config.dump(), description});
 }
 
 void DataBase::addDevice(const std::string &name, int device_type_id, const std::string &mqtt_topic, const std::string &location, bool status){
@@ -322,19 +357,24 @@ std::vector<json> DataBase::getListOfDevices()
     std::vector<json> list_of_devices;
     std::string sql = R"(
         SELECT 
+            d.id as device_id,
             d.name as device_name,
             dt.name as device_type,
-            dt.role as device_role  
+            dt.role as device_role,
+            dt.capabilities as device_actions  
         FROM devices d
         JOIN device_types dt ON d.device_type_id = dt.id
         ORDER BY d.name;
     )";
     QueryResult response = executeQuery(sql);
     json device;
+    
     for (size_t i = 0; i < response.rows.size(); i++){
-        device["device_name"] = response.get<std::string>(i, "device_name");
+        device["id"] = response.get<long long>(i, "device_id");
+        device["name"] = response.get<std::string>(i, "device_name");
         device["type"] = response.get<std::string>(i, "device_type");
         device["role"] = response.get<std::string>(i, "device_role");
+        device["actions"] = json::parse(response.get<std::string>(i, "device_actions"));
         list_of_devices.push_back(device);
     }
     return list_of_devices;
@@ -358,3 +398,17 @@ bool DataBase::checkUserAuthentication(const std::string &username, const std::s
 
     return true;
 }
+
+std::string DataBase::getMQTTTopic(unsigned int id){
+    std::string sql = "SELECT mqtt_topic FROM devices WHERE id = ?";
+    auto result = executeQuery(sql, {id});
+    return result.get<std::string>(0, 0);
+}
+
+// int DataBase::getIDFromDeviceName(const std::string &device_name){
+//     std::string sql = R"(
+//         SELECT id FROM devices WHERE name = ?
+//     )";
+//     auto result = executeQuery(sql, {device_name});
+//     return result.get<int>(0,0);
+// }

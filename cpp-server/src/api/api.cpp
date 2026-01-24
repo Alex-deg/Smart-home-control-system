@@ -1,9 +1,7 @@
 #include "api.h"
 
 // Перепроверить конструктор
-API::API(DataBase &db){
-    this->db = db;
-}
+API::API(DataBase &db_, MQTTClient &mqtt_) : db(db_), mqtt(mqtt_){}
 
 void API::run(int _port, bool multithreaded) {
     setupRoutes();
@@ -87,13 +85,54 @@ crow::response API::registration(const std::string &username, const std::string 
     return res;
 }
 
-crow::response API::singleAction(const std::string &device_name, const std::string &action)
+crow::response API::singleAction(long long int device_id, const std::string &action)
 {
     crow::response res;
     res.add_header("Content-Type", "application/json; charset=utf-8");
     json resp;
-    resp["message"] = "Аn action " + action + " was performed with the device " + device_name;
-    res.write(json(resp).dump(2));
+    
+    try {
+        // 1. Формируем MQTT команду
+        json mqtt_command;
+        mqtt_command["action"] = action;
+        mqtt_command["timestamp"] = std::time(nullptr);
+        mqtt_command["source"] = "api";  // Откуда пришла команда
+        
+        // 2. Получаем MQTT топик устройства из БД
+        std::string mqtt_topic;
+        try {
+            
+            mqtt_topic = db.getMQTTTopic(device_id);
+
+            if (mqtt_topic.find("/command") == std::string::npos) {
+                    mqtt_topic += "/command";
+            }
+        } catch (const std::exception& e) {
+            mqtt_topic = "devices/" + std::to_string(device_id) + "/command";
+        }
+        
+        // 3. Публикуем команду через MQTT
+        if (mqtt.isConnected()) {
+            mqtt.publish(mqtt_topic, mqtt_command.dump(), 1, false);
+                
+            resp["status"] = true;
+            resp["message"] = "Команда '" + action + "' отправлена устройству №" + 
+                            std::to_string(device_id);
+            resp["mqtt_topic"] = mqtt_topic;
+            resp["command"] = mqtt_command;
+        } else {
+            resp["status"] = "error";
+            resp["message"] = "MQTT не подключен. Команда не отправлена.";
+            res.code = 503; // Service Unavailable
+        }
+        
+    } catch (const std::exception& e) {
+        resp["status"] = false;
+        resp["message"] = "Ошибка: " + std::string(e.what());
+        res.code = 500;
+    }
+    
+    res.write(resp.dump(2));
     return res;
 }
 
@@ -139,18 +178,17 @@ void API::setupRoutes() {
         return registration(username, password, tg_chat_id);
     });
 
-    // CROW_ROUTE(app, "/api/actions/single")
-    // ([this](const crow::request& req){
-        // auto json = crow::json::load(req.body);
+    CROW_ROUTE(app, "/api/actions/single").methods("POST"_method)
+    ([this](const crow::request& req){
+        auto json = crow::json::load(req.body);
         
-        // if (!json || !json.has("username") || !json.has("password") || !json.has("tg_chat_id")) {
-        //     return crow::response(400, "Invalid JSON or missing fields");
-        // }
+        if (!json || !json.has("id") || !json.has("action")) {
+            return crow::response(400, "Invalid JSON or missing fields");
+        }
         
-        // std::string username = json["username"].s();
-        // std::string password = json["password"].s();
-        // long int tg_chat_id = json["tg_chat_id"].i();
+        long long int id = json["id"].i();
+        std::string action = json["action"].s();
 
-        // return registration(username, password, tg_chat_id);
-    // });
+        return singleAction(id, action);
+    });
 }
