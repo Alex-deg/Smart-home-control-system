@@ -48,6 +48,13 @@ def make_control_panel():
     markup.row(btn3)
     return markup
 
+def make_functional_panel(chosen_device):
+    markup = types.InlineKeyboardMarkup()
+    for action in chosen_device['actions']['modes']:
+        btn = types.InlineKeyboardButton(action, callback_data=str(chosen_device['id'])+':'+action)
+        markup.row(btn)
+    return markup
+
 def get_username_and_password(callback):
     users_states[callback.message.chat.id] = states.WAITING_USERS_NAME
     bot.send_message(callback.message.chat.id, 'Введите логин:')
@@ -69,7 +76,7 @@ def make_device_table_from_json(json_data):
     max_len_device_name = len('Устройство')
     max_len_device_type = len('Тип')
     for device in json_data:
-        max_len_device_name = max(max_len_device_name, len(device['device_name']))
+        max_len_device_name = max(max_len_device_name, len(device['name']))
         max_len_device_type = max(max_len_device_type, len(device['type']))
     s += '-' * (10 + max_len_device_name + max_len_device_type + len(json_data)) + '\n'
     s += '| ' + '№' + ' ' * len(json_data) + '| ' + 'Устройство' + ' ' * (max_len_device_name - len('Устройство') + 1) + '| ' + \
@@ -77,11 +84,22 @@ def make_device_table_from_json(json_data):
     i = 1
     for device in json_data:
         s += '-' * (10 + max_len_device_name + max_len_device_type + len(json_data)) + '\n'
-        s += '| ' + str(i) + ' ' * len(json_data) + '| ' + device['device_name'] + \
-             ' ' * (max_len_device_name - len(device['device_name']) + 1) \
+        s += '| ' + str(i) + ' ' * len(json_data) + '| ' + device['name'] + \
+             ' ' * (max_len_device_name - len(device['name']) + 1) \
            + '| ' + device['type'] + ' ' * (max_len_device_type - len(device['type']) + 1) + '|\n' 
         i += 1
+    s += '-' * (10 + max_len_device_name + max_len_device_type + len(json_data)) + '\n'
     return s + "```\n"
+
+def check_is_device_action_callback(callback):
+    # ПОКА КОСТЫЛЬ С ':', НО НУЖНО БУДЕТ ПОЛНОСТЬЮ ПРОВЕРЯТЬ ЧТО ФОРМАТ СТРОКИ 'id:action'
+    # ИЛИ ЧЕТКО В ДОКУМЕНТАЦИИ ОПРЕДЕЛИТЬ, ЧТО ТАКОЙ ФОРМАТ CALLBACKов ТОЛЬКО У ДЕЙСТВИЙ DEVICов
+    return ':' in callback.data
+
+def parse_device_action(command):
+    separator_index = command.find(':')
+    return int(command[:separator_index]), command[separator_index + 1:]
+
 
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -121,9 +139,21 @@ def callback_message(callback):
                 if users_states[callback.message.chat.id] == states.ACTUATOR_DEVICE_ID_RECIEVED:
                     break
             actuator_device_id = temp_data[callback.message.chat.id]['actuator_device_id']
-            print(f"actuator_device_id = {actuator_device_id}")
+            actuator_device_id -= 1
+            chosen_device = response.json()[actuator_device_id]
+            markup = make_functional_panel(chosen_device)
+            bot.send_message(callback.message.chat.id, 'Выбранное Вами устройство: ' + chosen_device['name'], \
+                             reply_markup=markup)
         else:
             bot.send_message(callback.message.chat.id, 'Технические неполадки :(')
+    elif check_is_device_action_callback(callback):
+        url = BASE_API_URL + '/api/actions/single'
+        id, action = parse_device_action(callback.data)
+        request_data = {'id' : id, 'action' : action}
+        response = requests.post(url, json=request_data)
+        data = response.json()
+        if data['status']:
+            bot.send_message(callback.message.chat.id, data['message'] + '\n' + data['mqtt_topic'])
 
 @bot.message_handler(content_types=['text'])
 def handle_text(message):
