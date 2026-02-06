@@ -37,11 +37,8 @@ int main(){
     //     "end_recording"
     // };
     // db.addDeviceType("camera", "actuator", "Камера (RPi)", config);
-    
+
     MQTTClient mqtt(db);  // db передается по ссылке
-    
-    // API api(db, mqtt);
-    // api.run();
 
     // 3. Настройка callback'ов (необязательно)
     mqtt.setOnConnectCallback([]() {

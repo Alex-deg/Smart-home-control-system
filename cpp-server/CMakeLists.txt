@@ -36,6 +36,7 @@ add_executable(SmartHomeSystem ${HEADER} ${SOURCE})
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
     SQLite::SQLite3
+    
     ${MOSQUITTO_LIB}
     pthread
     ${CMAKE_THREAD_LIBS_INIT}
