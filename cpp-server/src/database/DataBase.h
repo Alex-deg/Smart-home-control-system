@@ -6,7 +6,6 @@
 #include <string>
 #include <variant>
 #include <nlohmann/json.hpp>
-//#include "../entities.h"
 
 using json = nlohmann::json;
 using SQLValue = std::variant<std::string, int, double, long long>;
@@ -54,67 +53,110 @@ public:
 
 class DataBase : public IDataBase{
 public:
+
     void commit();
     void rollback();
     
-    void createUserTable();
-    void createDeviceTable();
-    void createDeviceTypeTable();
-    void createTriggerTable();
-    void createScenarioTable();
-    void createServerTable();
-    void createMQTTMessagesTable();
-    void createModulesTable();
-    void createUsersAndServersTable();
-    void createServersAndModulesTable();
-    void createModuleFillingTable(); // таблица описывающая функционал модуля 
-                                     // в абстракции. Сводная таблица модулей и
-                                     // типов устройств
+    /////////////////СОЗДАНИЕ ТАБЛИЦ ОСНОВНЫХ СУЩНОСТЕЙ И ИХ ОТНОШЕНИЙ/////////////////
+    void createUsersTable();                
+
+    void createUsersAndServersTable();      
+    void createServersTable();              
+    
+    void createServersAndModulesTable();    
+
+    void createModuleTypesTable();          
+    void createModulesTable();              
+
     void createModulesAndDevicesTable(); // таблица в которой содержится отношение
-                                         // модуль <=> конкретное устройство 
+                                         // конкретный модуль <=> конкретное устройство 
                                          // (с mqtt топиком для управления)
 
-    void deleteDeviceTypesTable();
-    void deleteDeviceTable();
+    void createModuleFillingTable(); // таблица описывающая функционал модуля 
+                                     // в абстракции. Сводная таблица типов модулей и
+                                     // типов устройств
 
-    void deleteServerFromTable(long long server_id);
-    void deleteModuleFromTable(long long record_id);
-    
+    void createDeviceTypesTable();          
+    void createDevicesTable();
+    ///////////////////////////////////////////////////////////////////////////////////
+
+
+
+    ////////////////////СОЗДАНИЕ ТАБЛИЦ ДЛЯ ФОРМИРОВАНИЯ СЦЕНАРИЕВ/////////////////////
+    void createTriggersTable();
+    void createScenariosTable();
+    void createMQTTMessagesTable();
+    ///////////////////////////////////////////////////////////////////////////////////
+      
+
+
+    //////////////////////////////////УДАЛЕНИЕ ТАБЛИЦ//////////////////////////////////
+    void deleteModuleTypesTable();
+    void deleteModulesTable();
+    void deleteDeviceTypesTable();
+    void deleteDeviceTable();    
+    ///////////////////////////////////////////////////////////////////////////////////
+
+
+
+    ////////////////////////////УДАЛЕНИЕ КОНКРЕТНЫХ ЗАПИСЕЙ////////////////////////////
+    void deleteServerFromTables(long long server_id);
+    void deleteModuleFromTables(long long module_id);
+    void deleteDeviceFromTables(long long device_id);
+    ///////////////////////////////////////////////////////////////////////////////////
+
+
+
+    //////////////////////////////////ОЧИСТКА ТАБЛИЦ///////////////////////////////////
     void clearDeviceTypesTable();
     void clearModuleFillingTable();
+    ///////////////////////////////////////////////////////////////////////////////////
 
+
+
+    //////////////////ИЗМЕНЕНИЕ КОНКРЕТНОГО ПОЛЯ В КОНКРЕТНОЙ ТАБЛИЦЕ//////////////////
     void updateServerName(long long server_id, const std::string& new_server_name);
     void updateDeviceType(int device_id, int device_type_id);
-    void updateDeviceStatus(const std::string &payload, const std::string &topic_pattern);
+    ///////////////////////////////////////////////////////////////////////////////////
 
+
+
+    ///////////////////////////ЗАПОЛНЕНИЕ ТАБЛИЦ ЗНАЧЕНИЯМИ////////////////////////////
     void addUser(const std::string& user_name, const std::string& password,
-                       long int tg_chat_id = 1, const std::string& role="user",
-                       const std::string& status="active");
-    void addMQTTMessage(const std::string &topic, const std::string &payload,
-                        bool incoming);
-    void addDeviceType(const std::string &name, const std::string &role, 
-                       const std::string &description, const json &config);
-    void addDevice(const std::string &name, int device_type_id, const std::string &mqtt_topic,
-                   const std::string &location="kitchen", bool status=true); 
+                       long int tg_chat_id = 1, bool = false);
     void addServer(long long user_id, const std::string& server_name, 
-                   const std::string& server_id);
-    void addModule(long long server_id, long long module_id);
-    void addModulesDevicesRecord(long long module_id, long long device_id);
-    
-    void adminAddModule(const std::string& name, const std::string& description);
-    void adminFillModules(long long module_id, long long device_type_id);
+                   const std::string& server_key);
+    void addModule(long long server_id, long long module_type_id, 
+                   const std::string& alias);
+    void addDevice(long long module_id, int device_type_id, 
+                   const std::string &mqtt_topic); 
+    void addMQTTMessage(const std::string &topic, const std::string &payload,
+                        bool incoming);    
+    ///////////////////////////////////////////////////////////////////////////////////
 
-    std::vector<json> getListOfDevices();
+
+
+    ////////////////////////////ПОЛУЧЕНИЕ ДАННЫХ ИЗ ТАБЛИЦ/////////////////////////////
     std::vector<json> getListOfServers(long long user_id);
+    std::vector<json> getListOfDevices();
     std::vector<json> getListOfModules(long long server_id);
     std::vector<json> getListOfAllModules();
     std::vector<json> getCapabilities(long long record_id);
     std::vector<std::string> getListOfNecessaryDevicesForModule(long long module_id);
     long long getModuleIDFromRecordID(long long record_id);
-
     long long getUserIDbyTGChatID(long long tg_chat_id);
-
     bool checkUserAuthentication(const std::string &username, const std::string &password);
     std::string getMQTTTopic(unsigned int id);
     //int getIDFromDeviceName(const std::string &device_name);
+    ///////////////////////////////////////////////////////////////////////////////////
+
+    /////////////ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ДЛЯ ЗАПОЛНЕНИЯ АБСТРАКТНЫХ ТАБЛИЦ"/////////////
+    void adminAddModuleType(const std::string& name, const std::string& description);
+    void adminFillModules(long long module_id, long long device_type_id);
+    void adminAddDeviceType(const std::string &name, const std::string &role, 
+                            const json &config, const std::string &description);
+    ///////////////////////////////////////////////////////////////////////////////////
 };
+
+// Возможно выделить все методы с префиксом admin в отдельный
+// класс AdminDatabase унаследовавшись от IDataBase
