@@ -6,7 +6,7 @@ def make_button_menu(list_of_titles, list_of_callbacks_names):
     markup = types.InlineKeyboardMarkup()
     if len(list_of_titles) != len(list_of_callbacks_names):
         raise RuntimeError("Размеры списков названий кнопок и callback'ов для них не совпадают")
-    for i in range(list_of_titles):
+    for i in range(len(list_of_titles)):
         btn = types.InlineKeyboardButton(list_of_titles[i], callback_data=list_of_callbacks_names[i])
         markup.row(btn)
     return markup
