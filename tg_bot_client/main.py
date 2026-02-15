@@ -27,7 +27,8 @@ class states:
     SERVERS_ID_RECIEVED = 7                 # id сервера получен
     WAITING_MODULES_ID = 8                  # Ожидание id модуля
     MODULES_ID_RECIEVED = 9                 # id модуля получен
-
+    WAITING_ALIAS_FOR_MODULE = 10           # Ожидание псевднонима для модуля
+    ALIAS_FOR_MODULE_RECIEVED = 11          # псевдоним для модуля получен
 
 bot = telebot.TeleBot(os.getenv("TELEGRAM_BOT_TOKEN", ""))
 BASE_API_URL = os.getenv("API_BASE_URL", "")
@@ -40,7 +41,7 @@ temp_data = {}
 
 current_server_id = -1
 
-####################################ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ####################################
+#################################### ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ##################################
 def get_username_and_password(callback):
     users_states[callback.message.chat.id] = states.WAITING_USERS_NAME
     auth_messages.append(bot.send_message(callback.message.chat.id, 'Введите логин:').message_id)
@@ -72,7 +73,7 @@ def parse_device_action(command):
 
 
 
-####################################ОБРАБОТКА СОБЫТИЙ ОТ БОТА##################################
+#################################### ОБРАБОТКА СОБЫТИЙ ОТ БОТА ################################
 @bot.message_handler(commands=['start'])
 def start(message):
     auth_messages.append(bot.send_message(message.chat.id, 'Привет!', reply_markup=make_auth()).message_id)
@@ -80,6 +81,7 @@ def start(message):
 @bot.callback_query_handler(func=lambda callback: True)
 def callback_message(callback):
     
+    #################################### ВХОД В СИСТЕМУ #######################################
     if callback.data == 'log_in':
         username, password = get_username_and_password(callback)
         url = BASE_API_URL + "/api/users/auth"
@@ -95,9 +97,13 @@ def callback_message(callback):
             response = requests.get(url, json=user_data)
             list_of_servers = response.json()
             bot.send_message(callback.message.chat.id, 'Доступные сервера:', \
-                             reply_markup=make_server_menu(list_of_servers))
+                             reply_markup=make_servers_menu(list_of_servers))
         else:
             bot.send_message(callback.message.chat.id, data["message"], reply_markup=make_auth())
+    ###########################################################################################
+
+
+    #################################### РЕГИСТРАЦИЯ ##########################################
     elif callback.data == 'registration':
         username, password = get_username_and_password(callback)
         url = BASE_API_URL + "/api/users/registration"
@@ -106,8 +112,16 @@ def callback_message(callback):
         response = requests.post(url, json=registration_data)
         data = response.json()
         bot.send_message(callback.message.chat.id, data["message"])
+    ###########################################################################################
+
+
+    ########################## ВЫВОД ВОЗМОЖНЫХ ОПЕРАЦИЙ С СЕРВЕРОМ ############################
     elif callback.data == 'servers_actions':
         bot.send_message(callback.message.chat.id, 'Выберите действие:', reply_markup=make_servers_action_menu())
+    ###########################################################################################
+    
+
+    ################################### ДОБАВЛЕНИЕ СЕРВЕРА ####################################
     elif callback.data == 'servers_add':
         bot.send_message(callback.message.chat.id, 'Введите имя сервера')
         users_states[callback.message.chat.id] = states.WAITING_SERVERS_NAME
@@ -121,6 +135,10 @@ def callback_message(callback):
                                             'server_name' : server_name})
         data = response.json()
         bot.send_message(callback.message.chat.id, data['message'])
+    ###########################################################################################
+
+
+    ################################### ИЗМЕНЕНИЕ СЕРВЕРА #####################################
     elif callback.data == 'servers_edit':
         url = BASE_API_URL + "/api/servers"
         user_data = {'tg_chat_id' : callback.message.chat.id}
@@ -148,12 +166,16 @@ def callback_message(callback):
                     break
             new_server_name = temp_data[callback.message.chat.id]['server_name']
             url = BASE_API_URL + '/api/servers/edit'
-            update_data = {'server_id' : list_of_servers[server_id]['serverID'], \
+            update_data = {'server_id' : list_of_servers[server_id]['server_id'], \
                            'new_server_name' : new_server_name}
             response = requests.patch(url, json=update_data)
             bot.send_message(callback.message.chat.id, response.json()['message'])
         else:
             bot.send_message(callback.message.chat.id, 'У вас пока нет ни одного созданного сервера')
+    ###########################################################################################
+    
+
+    ################################### УДАЛЕНИЕ СЕРВЕРА #####################################
     elif callback.data == 'servers_delete':
         url = BASE_API_URL + "/api/servers"
         user_data = {'tg_chat_id' : callback.message.chat.id}
@@ -172,25 +194,57 @@ def callback_message(callback):
                 time.sleep(0.5)
                 if users_states[callback.message.chat.id] == states.SERVERS_ID_RECIEVED:
                     break
-            server_id = temp_data[callback.message.chat.id]['server_id']
+            server_id = list_of_servers[temp_data[callback.message.chat.id]['server_id']]['server_id']
             url = BASE_API_URL + '/api/servers/delete'
-            update_data = {'server_id' : list_of_servers[server_id]['serverID']}
+            update_data = {'server_id' : server_id}
             response = requests.delete(url, json=update_data)
             bot.send_message(callback.message.chat.id, response.json()['message'])
         else:
             bot.send_message(callback.message.chat.id, 'У вас пока нет ни одного созданного сервера')    
+    ###########################################################################################
+
+
+    ##################################### ГЛАВНОЕ МЕНЮ ########################################
     elif 'server:' in callback.data:
         str_without_tag = callback.data[((callback.data.find(':')) + 1):]
         current_server_name = str_without_tag[:(str_without_tag.find(':'))]
         current_server_id = int(str_without_tag[(str_without_tag.find(':')) + 1:])
-        url = BASE_API_URL + '/api/modules'
-        response = requests.get(url, json={'server_id' : current_server_id})
+        temp_data[callback.message.chat.id]['current_server_id'] = current_server_id
         bot.send_message(callback.message.chat.id, \
-                         f"Выбран сервер: {current_server_name}", \
+                         "Главное меню:", \
+                         reply_markup=make_main_menu())
+        
+    ###########################################################################################
+    
+
+    ############################## ВЫВОД СПИСКА ДОСТУПНЫХ МОДУЛЕЙ #############################
+    elif callback.data == 'modules':
+        url = BASE_API_URL + '/api/modules'
+        response = requests.get(url, json={'server_id' : temp_data[callback.message.chat.id]['current_server_id']})
+        bot.send_message(callback.message.chat.id, 
+                         "Доступные модули:",
                          reply_markup=make_modules_menu(response.json()))
-        temp_data[callback.message.chat.id]['server_id'] = current_server_id
+    ###########################################################################################
+
+
+    ############################ ВЫВОД СПИСКА ДОСТУПНЫХ СЦЕНАРИЕВ #############################
+    elif callback.data == 'scenarios':
+        print('')
+        # url = BASE_API_URL + '/api/modules'
+        # response = requests.get(url, json={'server_id' : temp_data[callback.message.chat.id]['current_server_id']})
+        # bot.send_message(callback.message.chat.id, 
+        #                  "Доступные модули:",
+        #                  reply_markup=make_modules_menu(response.json()))
+    ###########################################################################################
+
+
+    ########################## ВЫВОД ВОЗМОЖНЫХ ОПЕРАЦИЙ С СЕРВЕРОМ ############################
     elif callback.data == 'modules_actions':
         bot.send_message(callback.message.chat.id, 'Выберите действие:', reply_markup=make_modules_action_menu())
+    ###########################################################################################
+
+
+    ################################### ДОБАВЛЕНИЕ МОДУЛЯ #####################################
     elif callback.data == 'modules_add':
         
         # ПРИ ДОБАВЛЕНИИ МОДУЛЯ СРАЗУ ДОБАВЛЯТЬ НЕОБХОДИМЫЕ УСТРОЙСТВА
@@ -216,25 +270,27 @@ def callback_message(callback):
                 time.sleep(0.5)
                 if users_states[callback.message.chat.id] == states.MODULES_ID_RECIEVED:
                     break
-            module_id = list_of_modules[temp_data[callback.message.chat.id]['module_id']]['id']
-            
-            ################ДОДЕЛАТЬ ДОБАВЛЕНИЕ УСТРОЙСТВ ПО СПИСКУ НЕОБХОДИМЫХ КОМПЛЕКТУЮЩИХ###################
-            # url = BASE_API_URL + '/api/modules/necessary_devices'
-            # module_data = {"module_id" : module_id}
-            # response = requests.get(url, json=module_data)
-            # print(response.json())
-            # bot.send_message(callback.message.chat.id, 'Перед началом использования модуля \
-            #                                             необходимо добавить следующие устройства:', \
-            #                 reply_markup=make_modules_necessary_devices(response.json()))
-            ####################################################################################################
+            module_type_id = list_of_modules[temp_data[callback.message.chat.id]['module_id']]['id']
 
+            bot.send_message(callback.message.chat.id, 'Введите псевдоним для модуля')
+            users_states[callback.message.chat.id] = states.WAITING_ALIAS_FOR_MODULE
+            while True:
+                time.sleep(0.5)
+                if users_states[callback.message.chat.id] == states.ALIAS_FOR_MODULE_RECIEVED:
+                    break
+            alias = temp_data[callback.message.chat.id]['alias']
             url = BASE_API_URL + '/api/modules/add'
-            module_data = {'server_id' : cur_server_id, 'module_id' : module_id}
+            module_data = {'server_id' : cur_server_id, 'module_type_id' : module_type_id, \
+                           'alias' : alias}
             response = requests.post(url, json=module_data)
             data = response.json()
             bot.send_message(callback.message.chat.id, data['message'])
         else:
             bot.send_message(callback.message.chat.id, 'Еще не добавлено ни одного модуля')
+    ###########################################################################################
+    
+    
+    ################################### УДАЛЕНИЕ МОДУЛЯ #######################################
     elif callback.data == 'modules_delete':
         cur_server_id = temp_data[callback.message.chat.id]['server_id']
         url = BASE_API_URL + '/api/modules'
@@ -254,25 +310,60 @@ def callback_message(callback):
                 time.sleep(0.5)
                 if users_states[callback.message.chat.id] == states.MODULES_ID_RECIEVED:
                     break
-            record_id = list_of_modules[temp_data[callback.message.chat.id]['module_id']]['record_id']
+            module_id = list_of_modules[temp_data[callback.message.chat.id]['module_id']]['id']
             url = BASE_API_URL + '/api/modules/delete'
-            response = requests.delete(url, json={'record_id' : record_id})
+            response = requests.delete(url, json={'module_id' : module_id})
             data = response.json()
             bot.send_message(callback.message.chat.id, data['message'])
         else:
             bot.send_message(callback.message.chat.id, 'Еще не добавлено ни одного модуля')
+    ###########################################################################################
+    
+
+    ############################### ВЫВОД ФУНКЦИОНАЛА МОДУЛЯ ##################################
     elif 'module:' in callback.data:
         str_without_tag = callback.data[((callback.data.find(':')) + 1):]
         current_module_name = str_without_tag[:(str_without_tag.find(':'))]
-        current_record_id = int(str_without_tag[(str_without_tag.find(':')) + 1:])
+        current_module_id = int(str_without_tag[(str_without_tag.find(':')) + 1:])
         bot.send_message(callback.message.chat.id, \
                          f"Выбран модуль: {current_module_name}\n")
         url = BASE_API_URL + '/api/modules/capabilities'
-        response = requests.get(url, json={'record_id' : current_record_id})
+        response = requests.get(url, json={'module_id' : current_module_id})
         capabilities = response.json()
-        bot.send_message(callback.message.chat.id, 'Функционал:', reply_markup=make_modules_capabilities(current_record_id, capabilities))
+        bot.send_message(callback.message.chat.id, 'Функционал:', reply_markup=make_modules_capabilities(current_module_id, capabilities))
+        temp_data[callback.message.chat.id]['current_module_id'] = current_module_id
+    ###########################################################################################
+    
     elif 'action:' in callback.data:
         print()
+
+    elif callback.data == 'back_to_the_servers_list':
+        url = BASE_API_URL + '/api/servers'
+        response = requests.get(url, json={'tg_chat_id' : callback.message.chat.id})
+        bot.edit_message_text(
+            chat_id=callback.message.chat.id,
+            message_id=callback.message.message_id,
+            text="Доступные сервера:",
+            reply_markup=make_servers_menu(response.json())
+        )
+    elif callback.data == 'back_to_the_main_menu':
+        bot.edit_message_text(
+            chat_id=callback.message.chat.id,
+            message_id=callback.message.message_id,
+            text="Главное меню:",
+            reply_markup=make_main_menu()
+        )
+    elif callback.data == 'back_to_the_modules_list':
+        url = BASE_API_URL + '/api/modules'
+        response = requests.get(url, json={'server_id' : temp_data[callback.message.chat.id]['current_server_id']})
+        bot.edit_message_text(
+            chat_id=callback.message.chat.id,
+            message_id=callback.message.message_id,
+            text="Доступные модули:",
+            reply_markup=make_modules_menu(response.json())
+        )
+        
+
 
     
     # elif callback.data == 'single_action':
@@ -323,6 +414,9 @@ def handle_text(message):
     elif users_states[message.chat.id] == states.WAITING_MODULES_ID:
         users_states[message.chat.id] = states.MODULES_ID_RECIEVED
         temp_data[message.chat.id] = {'module_id' : int(message.text) - 1}
+    elif users_states[message.chat.id] == states.WAITING_ALIAS_FOR_MODULE:
+        users_states[message.chat.id] = states.ALIAS_FOR_MODULE_RECIEVED
+        temp_data[message.chat.id] = {'alias' : message.text}
 
 bot.polling(none_stop=True)
 ###############################################################################################

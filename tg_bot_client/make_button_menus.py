@@ -21,13 +21,14 @@ def make_auth():
     # markup.row(btn2)
     # return markup
 
-def make_server_menu(servers):
+def make_servers_menu(servers):
 
     names, callbacks = [], []
     for server in servers:
         names.append(server['name'])
-        callbacks.append('server:' + server["name"] + ':' + str(server["serverID"]))
-
+        callbacks.append('server:' + server["name"] + ':' + str(server["server_id"]))
+    names.append('Редактирование серверов')
+    callbacks.append('servers_actions')
     return make_button_menu(names, callbacks)
     # markup = types.InlineKeyboardMarkup()
     # for server in servers:
@@ -40,7 +41,7 @@ def make_server_menu(servers):
 
 def make_servers_action_menu():
     return make_button_menu(['Добавить', 'Изменить', 'Удалить', 'Назад'],\
-                            ['servers_add', 'servers_edit', 'servers_delete', 'back'])
+                            ['servers_add', 'servers_edit', 'servers_delete', 'back_to_the_servers_list'])
     # markup = types.InlineKeyboardMarkup()
     # btn1 = types.InlineKeyboardButton('Добавить', callback_data='servers_add')
     # markup.row(btn1)
@@ -54,7 +55,7 @@ def make_servers_action_menu():
 
 def make_main_menu():
     return make_button_menu(['Модули', 'Сценарии', 'Назад'], \
-                            ['modules', 'scenarios', 'back'])
+                            ['modules', 'scenarios', 'back_to_the_servers_list'])
     # markup = types.InlineKeyboardMarkup()
     # btn1 = types.InlineKeyboardButton('Модули', callback_data='modules')
     # markup.row(btn1)
@@ -68,10 +69,14 @@ def make_modules_menu(modules):
 
     names, callbacks = [], []
     for module in modules:
-        names.append(module['name'])
-        callbacks.append(callback_data='module:' + module['name'] + ':' + str(module["record_id"]))
+        names.append(module['name'] + f" [ {module['alias']} ]")
+        callbacks.append('module:' + module['name'] + ':' + str(module['id']))
+    names.append('Редактирование модулей')
+    callbacks.append('modules_actions')
+    names.append('Назад')
+    callbacks.append('back_to_the_main_menu')
     return make_button_menu(names, callbacks)
-
+    
     # markup = types.InlineKeyboardMarkup()
     # for module in modules:
     #     btn1 = types.InlineKeyboardButton(module['name'], callback_data='module:' + \
@@ -85,7 +90,7 @@ def make_modules_menu(modules):
 
 def make_modules_action_menu():
     return make_button_menu(['Добавить', 'Удалить', 'Назад'],\
-                            ['modules_add', 'modules_delete', 'back'])
+                            ['modules_add', 'modules_delete', 'back_to_the_modules_list'])
     # markup = types.InlineKeyboardMarkup()
     # btn1 = types.InlineKeyboardButton('Добавить', callback_data='modules_add')
     # markup.row(btn1)
@@ -108,17 +113,17 @@ def make_modules_necessary_devices(necessary_devices):
     #     markup.row(btn1)
     # return markup
 
-def make_modules_capabilities(record_id, capabilities):
+def make_modules_capabilities(module_id, capabilities):
 
     names, callbacks = [], []
     for capability in capabilities:
         if capability != None:
             for action in capability['modes']:
                 names.append(action)
-                callbacks.append('action:' + action + ':' + str(record_id))
+                callbacks.append('action:' + action + ':' + str(module_id))
 
     names.append('Назад')
-    callbacks.append('back')
+    callbacks.append('back_to_the_modules_list')
     return make_button_menu(names, callbacks)
 
     # markup = types.InlineKeyboardMarkup()
