@@ -169,7 +169,7 @@ public:
     void adminAddModuleType(const std::string& name, const std::string& description);
     void adminFillModules(long long module_type_id, long long device_type_id);
     void adminAddDeviceType(const std::string &name, const std::string &role, 
-                            const json &config, const std::string &description);
+                            const std::string &description);
     ///////////////////////////////////////////////////////////////////////////////////
 };
 
