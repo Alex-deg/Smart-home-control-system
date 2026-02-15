@@ -11,32 +11,7 @@ int main(){
     DataBase db;
     db.open("../Data/smart_home.db");
 
-    // db.deleteDeviceTypesTable();
-    // db.createDeviceTypeTable();
-    // json config;
-    // config["modes"] = {
-    //     "turn_on",
-    //     "turn_off",
-    //     "get_power"
-    // };
-    // std::string s = config.dump();
-    // db.addDeviceType("smart_plug", "actuator", "Умная розетка", s);
-    // config["modes"] = {
-    //     "turn_on",
-    //     "turn_off"
-    // };
-    // db.addDeviceType("relay", "actuator", "Релейный модуль (220В)", config);
-    // config["modes"] = {
-    //     "report_motion",
-    //     "report_no_motion"
-    // };
-    // db.addDeviceType("motion_sensor", "sensor", "Датчик движения (PIR)", config);
-    // config["modes"] = {
-    //     "take_photo",
-    //     "start_recording",
-    //     "end_recording"
-    // };
-    // db.addDeviceType("camera", "actuator", "Камера (RPi)", config);
+
 
     MQTTClient mqtt(db);  // db передается по ссылке
 

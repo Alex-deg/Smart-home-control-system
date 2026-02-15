@@ -72,7 +72,7 @@ public:
                                          // конкретный модуль <=> конкретное устройство 
                                          // (с mqtt топиком для управления)
 
-    void createModuleFillingTable(); // таблица описывающая функционал модуля 
+    void createModulesFillingTable(); // таблица описывающая функционал модуля 
                                      // в абстракции. Сводная таблица типов модулей и
                                      // типов устройств
 
@@ -91,10 +91,16 @@ public:
 
 
     //////////////////////////////////УДАЛЕНИЕ ТАБЛИЦ//////////////////////////////////
+    void deleteUsersTable();
+    void deleteServersTable();
     void deleteModuleTypesTable();
     void deleteModulesTable();
     void deleteDeviceTypesTable();
-    void deleteDeviceTable();    
+    void deleteDevicesTable();    
+    void deleteUsersAndServersTable();
+    void deleteServersAndModulesTable();
+    void deleteModulesAndDevicesTable();
+    void deleteModulesFillingTable();
     ///////////////////////////////////////////////////////////////////////////////////
 
 
@@ -117,6 +123,7 @@ public:
     //////////////////ИЗМЕНЕНИЕ КОНКРЕТНОГО ПОЛЯ В КОНКРЕТНОЙ ТАБЛИЦЕ//////////////////
     void updateServerName(long long server_id, const std::string& new_server_name);
     void updateDeviceType(int device_id, int device_type_id);
+    // void updateDeviceStatus(const std::string &payload, const std::string &topic_pattern){
     ///////////////////////////////////////////////////////////////////////////////////
 
 
@@ -140,8 +147,16 @@ public:
     std::vector<json> getListOfServers(long long user_id);
     std::vector<json> getListOfDevices();
     std::vector<json> getListOfModules(long long server_id);
-    std::vector<json> getListOfAllModules();
-    std::vector<json> getCapabilities(long long record_id);
+    std::vector<json> getListOfAllModuleTypes();
+    
+    ///////////////////////////////////////////////////////////////
+    std::vector<json> getListOfModulesDevices(long long module_id);
+    std::vector<json> getDeviceCapabilities(long long device_id);
+    ///////////////////////////////////////////////////////////////
+    std::vector<json> getCapabilities(long long module_id);
+    ///////////////////////////////////////////////////////////////
+
+    
     std::vector<std::string> getListOfNecessaryDevicesForModule(long long module_id);
     long long getModuleIDFromRecordID(long long record_id);
     long long getUserIDbyTGChatID(long long tg_chat_id);
@@ -152,7 +167,7 @@ public:
 
     /////////////ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ДЛЯ ЗАПОЛНЕНИЯ АБСТРАКТНЫХ ТАБЛИЦ"/////////////
     void adminAddModuleType(const std::string& name, const std::string& description);
-    void adminFillModules(long long module_id, long long device_type_id);
+    void adminFillModules(long long module_type_id, long long device_type_id);
     void adminAddDeviceType(const std::string &name, const std::string &role, 
                             const json &config, const std::string &description);
     ///////////////////////////////////////////////////////////////////////////////////

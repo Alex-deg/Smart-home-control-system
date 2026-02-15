@@ -331,7 +331,7 @@ void DataBase::createModulesAndDevicesTable(){
     )");
 }
 
-void DataBase::createModuleFillingTable(){
+void DataBase::createModulesFillingTable(){
     
     /**
      * @brief Создание таблицы для хранения "начинки" модуля
@@ -348,7 +348,7 @@ void DataBase::createModuleFillingTable(){
             module_type_id INTEGER NOT NULL,
             device_type_id INTEGER NOT NULL,
             FOREIGN KEY (device_type_id) REFERENCES device_types(id),
-            FOREIGN KEY (module_id) REFERENCES modules(id)
+            FOREIGN KEY (module_type_id) REFERENCES module_types(id)
         );
     )");
 }
@@ -463,8 +463,30 @@ void DataBase::createMQTTMessagesTable(){
 
 
 
+void DataBase::deleteUsersTable(){
+
+    /**
+     * @brief Удаление таблицы с пользователями
+     */
+
+    executeRequest(R"(
+        DROP TABLE users;    
+    )");
+}
+
+void DataBase::deleteServersTable(){
+
+    /**
+     * @brief Удаление таблицы с серверами
+     */
+
+    executeRequest(R"(
+        DROP TABLE servers;    
+    )");
+}
+
 void DataBase::deleteModuleTypesTable(){
-    
+
     /**
      * @brief Удаление таблицы с типами модулей
      */
@@ -497,7 +519,7 @@ void DataBase::deleteDeviceTypesTable(){
     executeRequest(sql);
 }
 
-void DataBase::deleteDeviceTable(){
+void DataBase::deleteDevicesTable(){
     
     /**
      * @brief Удаление таблицы с устройствами
@@ -508,7 +530,49 @@ void DataBase::deleteDeviceTable(){
     )");
 }
 
+void DataBase::deleteUsersAndServersTable(){
 
+    /**
+     * @brief Удаление сводной таблицы с пользователями и привязанными к ним серверами
+     */
+
+    executeRequest(R"(
+        DROP TABLE users_servers;    
+    )");
+}
+
+void DataBase::deleteServersAndModulesTable(){
+
+    /**
+     * @brief Удаление сводной таблицы с серверами и привязанными к ним модулями
+     */
+
+    executeRequest(R"(
+        DROP TABLE servers_modules;    
+    )");
+}
+
+void DataBase::deleteModulesAndDevicesTable(){
+
+    /**
+     * @brief Удаление сводной таблицы с модулями и привязанными к ним устройствами
+     */
+
+    executeRequest(R"(
+        DROP TABLE modules_devices;    
+    )");
+}
+
+void DataBase::deleteModulesFillingTable(){
+
+    /**
+     * @brief Удаление сводной таблицы с типами модулей и типами устройств
+     */
+
+    executeRequest(R"(
+        DROP TABLE modules_filling;    
+    )");
+}
 
 void DataBase::deleteServerFromTables(long long server_id){
 
@@ -524,7 +588,7 @@ void DataBase::deleteServerFromTables(long long server_id){
     )";
     executeRequest(sql, {server_id});
     
-    // Удаление из таблицы с серверами
+    // Удаление из таблицы модулей
     sql = R"(
         DELETE FROM servers
         WHERE id = ?
@@ -670,6 +734,15 @@ void DataBase::updateDeviceType(int device_id, int device_type_id)
     )";
     executeRequest(sql, {device_type_id, device_id});
 }
+
+// void DataBase::updateDeviceStatus(bool new_status, const std::string &topic_pattern){
+//     std::string sql = R"(
+//         UPDATE devices 
+//         SET status = ?
+//         WHERE mqtt_topic LIKE ?
+//     )";
+//     executeRequest(sql, {new_status, topic_pattern});      
+// }
 
 
 
@@ -898,6 +971,8 @@ std::vector<json> DataBase::getListOfServers(long long user_id)
      * @return список json объектов, которые описывают сервера
      */
 
+    std::cout << "user_id = " << user_id << std::endl;
+
     std::vector<json> list_of_servers;
     std::string sql = R"(
         SELECT 
@@ -959,11 +1034,12 @@ std::vector<json> DataBase::getListOfModules(long long server_id)
     std::string sql = R"(
         SELECT 
             m.id as module_id,
-            m.name as module_name,
-            m.description as module_description, 
-            sm.id as record_id 
+            m.alias as module_alias,
+            mt.name as module_name,
+            mt.description as module_description 
         FROM servers_modules sm
         JOIN modules m ON sm.module_id = m.id
+        JOIN module_types mt ON m.module_type_id = mt.id
         WHERE server_id = ?;
     )";
 
@@ -972,21 +1048,21 @@ std::vector<json> DataBase::getListOfModules(long long server_id)
     
     for (size_t i = 0; i < response.rows.size(); i++){
         module_["id"] = response.get<long long>(i, "module_id");
+        module_["alias"] = response.get<std::string>(i, "module_alias");
         module_["name"] = response.get<std::string>(i, "module_name");
         module_["description"] = response.get<std::string>(i, "module_description");
-        module_["record_id"] = response.get<long long>(i, "record_id");
         list_of_modules.push_back(module_);
     }
     return list_of_modules;
 }
 
-std::vector<json> DataBase::getListOfAllModules()
+std::vector<json> DataBase::getListOfAllModuleTypes()
 {
     std::vector<json> list_of_modules;
     std::string sql = R"(
         SELECT 
             *
-        FROM modules;
+        FROM module_types;
     )";
 
     QueryResult response = executeQuery(sql);
@@ -1001,19 +1077,29 @@ std::vector<json> DataBase::getListOfAllModules()
     return list_of_modules;
 }
 
-std::vector<json> DataBase::getCapabilities(long long record_id)
+std::vector<json> DataBase::getCapabilities(long long module_id)
 {
     std::vector<json> capabilities;
+
     std::string sql = R"(
+        SELECT
+            module_type_id
+        FROM modules
+        WHERE id = ?
+    )";
+
+    QueryResult response = executeQuery(sql, {module_id});
+    long long module_type_id = response.get<long long>(0, "module_type_id");
+
+    sql = R"(
         SELECT 
             capabilities as module_capabilities
         FROM modules_filling mf
         JOIN device_types dt ON mf.device_type_id = dt.id
-        WHERE module_id = ?;
+        WHERE module_type_id = ?;
     )";
 
-    long long module_id = getModuleIDFromRecordID(record_id);
-    QueryResult response = executeQuery(sql, {module_id});
+    response = executeQuery(sql, {module_type_id});
     for (int i = 0; i < response.size(); i++){
         auto capability = json::parse(response.get<std::string>(i, "module_capabilities"));
         if (capability != NULL)

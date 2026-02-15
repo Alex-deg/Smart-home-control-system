@@ -349,7 +349,7 @@ void MQTTClient::processIncomingMessage(const std::string& topic,
             
             try {
                 std::string topic_pattern = "%" + device_id + "%";
-                db_.updateDeviceStatus(payload, topic_pattern);          
+                // db_.updateDeviceStatus(payload, topic_pattern);          
             } catch (const std::exception& e) {
                 std::cerr << "Error processing device message: " << e.what() << std::endl;
             }
