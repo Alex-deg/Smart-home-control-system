@@ -367,7 +367,6 @@ void DataBase::createDeviceTypesTable(){
      *                                  aux - вспомогательные устройства (например МК, который
      *                                  и не исполняет инструкции, и не собирает данные, а 
      *                                  является неким мостом между actuator и сервером))
-     *          capabilities - возможности характерные данному типу устройств
      *          description - описание типа устройства
      */
 
@@ -376,7 +375,6 @@ void DataBase::createDeviceTypesTable(){
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT UNIQUE NOT NULL,   
             role TEXT NOT NULL, 
-            capabilities TEXT, 
             description TEXT            
         ); 
     )");
@@ -936,7 +934,7 @@ void DataBase::adminFillModules(long long module_type_id, long long device_type_
 }
 
 void DataBase::adminAddDeviceType(const std::string &name, const std::string &role, 
-                                  const json &config, const std::string &description){
+                                  const std::string &description){
 
     /**
      * @brief Добавление типа устройства
@@ -946,16 +944,15 @@ void DataBase::adminAddDeviceType(const std::string &name, const std::string &ro
      *                                  aux - вспомогательные устройства (например МК, который
      *                                  и не исполняет инструкции, и не собирает данные, а 
      *                                  является неким мостом между actuator и сервером))
-     * @param config возможности характерные данному типу устройств
      * @param description описание типа устройства
     */
 
     // Добавление в таблицу с типами устройств
     std::string sql = R"(
-        INSERT INTO device_types(name, role, capabilities, description)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO device_types(name, role, description)
+        VALUES (?, ?, ?)
     )";
-    executeRequest(sql, {name, role, config.dump(), description});
+    executeRequest(sql, {name, role, description});
 
 }
 
