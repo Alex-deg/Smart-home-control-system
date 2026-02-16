@@ -117,10 +117,8 @@ def make_modules_capabilities(module_id, capabilities):
 
     names, callbacks = [], []
     for capability in capabilities:
-        if capability != None:
-            for action in capability['modes']:
-                names.append(action)
-                callbacks.append('action:' + action + ':' + str(module_id))
+        names.append(capability)
+        callbacks.append('action:' + capability + ':' + str(module_id))
 
     names.append('Назад')
     callbacks.append('back_to_the_modules_list')
