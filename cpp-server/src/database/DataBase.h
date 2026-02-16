@@ -76,6 +76,8 @@ public:
                                      // в абстракции. Сводная таблица типов модулей и
                                      // типов устройств
 
+    void createModulesCapabilitiesTable();
+
     void createDeviceTypesTable();          
     void createDevicesTable();
     ///////////////////////////////////////////////////////////////////////////////////
@@ -101,6 +103,7 @@ public:
     void deleteServersAndModulesTable();
     void deleteModulesAndDevicesTable();
     void deleteModulesFillingTable();
+    void deleteModulesCapabilitiesTable();
     ///////////////////////////////////////////////////////////////////////////////////
 
 
@@ -148,15 +151,7 @@ public:
     std::vector<json> getListOfDevices();
     std::vector<json> getListOfModules(long long server_id);
     std::vector<json> getListOfAllModuleTypes();
-    
-    ///////////////////////////////////////////////////////////////
-    std::vector<json> getListOfModulesDevices(long long module_id);
-    std::vector<json> getDeviceCapabilities(long long device_id);
-    ///////////////////////////////////////////////////////////////
-    std::vector<json> getCapabilities(long long module_id);
-    ///////////////////////////////////////////////////////////////
-
-    
+    std::vector<std::string> getCapabilities(long long module_id);   
     std::vector<std::string> getListOfNecessaryDevicesForModule(long long module_id);
     long long getModuleIDFromRecordID(long long record_id);
     long long getUserIDbyTGChatID(long long tg_chat_id);
@@ -170,6 +165,7 @@ public:
     void adminFillModules(long long module_type_id, long long device_type_id);
     void adminAddDeviceType(const std::string &name, const std::string &role, 
                             const std::string &description);
+    void adminAddModuleCapability(long long module_type_id, const std::string& capability);
     ///////////////////////////////////////////////////////////////////////////////////
 };
 

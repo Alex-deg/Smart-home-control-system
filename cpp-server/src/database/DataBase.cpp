@@ -353,8 +353,21 @@ void DataBase::createModulesFillingTable(){
     )");
 }
 
-void DataBase::createDeviceTypesTable(){
-    
+void DataBase::createModulesCapabilitiesTable(){
+
+    executeRequest(R"(
+        CREATE TABLE modules_capabilities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            module_type_id INTEGER NOT NULL,
+            action TEXT NOT NULL,
+            FOREIGN KEY (module_type_id) REFERENCES module_types(id)
+        );
+    )");
+}
+
+void DataBase::createDeviceTypesTable()
+{
+
     /**
      * @brief Создание таблицы для хранения типов устройств
      * @details Таблица может заполняться только разработчиком, так как она содержит
@@ -569,6 +582,12 @@ void DataBase::deleteModulesFillingTable(){
 
     executeRequest(R"(
         DROP TABLE modules_filling;    
+    )");
+}
+
+void DataBase::deleteModulesCapabilitiesTable(){
+    executeRequest(R"(
+        DROP TABLE modules_capabilities;    
     )");
 }
 
@@ -956,7 +975,15 @@ void DataBase::adminAddDeviceType(const std::string &name, const std::string &ro
 
 }
 
+void DataBase::adminAddModuleCapability(long long module_type_id, const std::string &capability){
 
+    std::string sql = R"(
+        INSERT INTO modules_capabilities(module_type_id, action)
+        VALUES (?, ?)
+    )";
+    executeRequest(sql, {module_type_id, capability});
+
+}
 
 std::vector<json> DataBase::getListOfServers(long long user_id)
 {
@@ -1074,9 +1101,9 @@ std::vector<json> DataBase::getListOfAllModuleTypes()
     return list_of_modules;
 }
 
-std::vector<json> DataBase::getCapabilities(long long module_id)
+std::vector<std::string> DataBase::getCapabilities(long long module_id)
 {
-    std::vector<json> capabilities;
+    std::vector<std::string> capabilities;
 
     std::string sql = R"(
         SELECT
@@ -1090,17 +1117,15 @@ std::vector<json> DataBase::getCapabilities(long long module_id)
 
     sql = R"(
         SELECT 
-            capabilities as module_capabilities
-        FROM modules_filling mf
-        JOIN device_types dt ON mf.device_type_id = dt.id
+            action as module_capability
+        FROM modules_capabilities
         WHERE module_type_id = ?;
     )";
 
     response = executeQuery(sql, {module_type_id});
     for (int i = 0; i < response.size(); i++){
-        auto capability = json::parse(response.get<std::string>(i, "module_capabilities"));
-        if (capability != NULL)
-            capabilities.push_back(capability);
+        auto capability = response.get<std::string>(i, "module_capability");
+        capabilities.push_back(capability);
     }
     return capabilities;
 }
