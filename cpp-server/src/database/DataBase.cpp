@@ -207,8 +207,7 @@ void DataBase::createUsersTable(){
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL,
             password TEXT NOT NULL, 
-            telegram_chat_id BIGINT UNIQUE,  
-            status BOOLEAN DEFAULT false
+            telegram_chat_id BIGINT UNIQUE
         );    
     )");
 }
@@ -278,13 +277,15 @@ void DataBase::createModuleTypesTable(){
      *          
      *          name - имя модуля
      *          description - описание модуля
+     *          creatorID - id пользователя, который создал данный тип модуля
      */
 
     executeRequest(R"(
         CREATE TABLE module_types (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
-            description TEXT NOT NULL
+            description TEXT NOT NULL,
+            creatorID INTEGER NOT NULL
         ); 
     )");
 }
@@ -340,6 +341,8 @@ void DataBase::createModulesFillingTable(){
      *          module_type_id - id типа модуля
      *          device_type_id - id типа устройства, которое должно входить в состав
      *          модуля с данным module_type_id
+     *          count - количество устройств типа device_type_id входящих в тип модуля
+     *          module_type_id
      */
 
     executeRequest(R"(
@@ -347,19 +350,8 @@ void DataBase::createModulesFillingTable(){
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             module_type_id INTEGER NOT NULL,
             device_type_id INTEGER NOT NULL,
+            count INTEGER NOT NULL, 
             FOREIGN KEY (device_type_id) REFERENCES device_types(id),
-            FOREIGN KEY (module_type_id) REFERENCES module_types(id)
-        );
-    )");
-}
-
-void DataBase::createModulesCapabilitiesTable(){
-
-    executeRequest(R"(
-        CREATE TABLE modules_capabilities (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            module_type_id INTEGER NOT NULL,
-            action TEXT NOT NULL,
             FOREIGN KEY (module_type_id) REFERENCES module_types(id)
         );
     )");
@@ -399,6 +391,8 @@ void DataBase::createDevicesTable(){
      * @brief Создание таблицы для хранения устройств
      * @details device_type_id - id типа устройства
      *          mqtt_topic - mqtt топик для связи с сервером
+     *          alias - псевдоним, чтобы пользователь мог определять устройства
+     *          одинакового типа в рамках одного модуля
      */
 
     executeRequest(R"(
@@ -406,12 +400,78 @@ void DataBase::createDevicesTable(){
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             device_type_id INTEGER NOT NULL,
             mqtt_topic TEXT UNIQUE NOT NULL, 
+            alias TEXT NOT NULL,
             FOREIGN KEY (device_type_id) REFERENCES device_types(id)
         );   
     )");
 }
 
+void DataBase::createActionsAndDeviceTypesTable(){
 
+    /**
+     * @brief Создание сводной таблицы для хранения отношения действий и типов устройств
+     * @details action_id - id действия
+     *          device_type_id - id типа устройства, которое выполняет действие с данным action_id
+     */
+
+    executeRequest(R"(
+        CREATE TABLE actions_device_types (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            action_id INTEGER NOT NULL,
+            device_type_id INTEGER NOT NULL, 
+            FOREIGN KEY (action_id) REFERENCES actions(id),
+            FOREIGN KEY (device_type_id) REFERENCES device_types(id)
+        );   
+    )");
+}
+
+void DataBase::createModuleTypesAndCapabilitiesTable(){
+    /**
+     * @brief Создание сводной таблицы для хранения отношения действий и типов устройств
+     * @details module_type_id - id типа модуля
+     *          capability_id - id возможности, которая предоставляется модулем с данным module_type_id
+     */
+
+    executeRequest(R"(
+        CREATE TABLE module_types_capabilities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            module_type_id INTEGER NOT NULL,
+            capability_id INTEGER NOT NULL, 
+            FOREIGN KEY (module_type_id) REFERENCES module_types(id),
+            FOREIGN KEY (capability_id) REFERENCES capabilities(id)
+        );   
+    )");
+}
+
+void DataBase::createCapabilitiesTable(){
+    executeRequest(R"(
+        CREATE TABLE capabilities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL
+        );   
+    )");
+}
+
+void DataBase::createActionsTable(){
+    executeRequest(R"(
+        CREATE TABLE actions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL
+        );   
+    )");
+}
+
+void DataBase::createCapabilitiesAndActionsTable(){
+    executeRequest(R"(
+        CREATE TABLE capabilities_actions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            capability_id INTEGER NOT NULL,
+            action_id INTEGER NOT NULL,
+            FOREIGN KEY (capability_id) REFERENCES capabilities(id),
+            FOREIGN KEY (action_id) REFERENCES actions(id)
+        );   
+    )");
+}
 
 void DataBase::createTriggersTable(){
    
@@ -541,6 +601,67 @@ void DataBase::deleteDevicesTable(){
     )");
 }
 
+void DataBase::deleteActionsAndDeviceTypes(){
+    
+    /**
+     * @brief Удаление таблицы с действиями и привязанными к ним типами устройств
+     */
+
+    executeRequest(R"(
+        DROP TABLE actions_device_types;    
+    )");
+}
+
+void DataBase::deleteModuleTypesAndCapabilities(){
+
+    /**
+     * @brief Удаление таблицы с типами модулей и привязанными к ним возможностями
+     */
+
+    executeRequest(R"(
+        DROP TABLE module_types_capabilities;    
+    )");
+}
+
+void DataBase::deleteCapabilitiesTable(){
+
+    /**
+     * @brief Удаление таблицы с возможностями
+     */
+
+    executeRequest(R"(
+        DROP TABLE capabilities;    
+    )");
+}
+
+void DataBase::deleteCapabilitiesAndActionsTable(){
+
+    /**
+     * @brief Удаление таблицы с возможностями и привязанными к ним действиями
+     */
+
+    executeRequest(R"(
+        DROP TABLE capabilities_actions;    
+    )");
+}
+
+void DataBase::deleteActionsTable(){
+
+    /**
+     * @brief Удаление таблицы с действиями
+     */
+
+    executeRequest(R"(
+        DROP TABLE actions;    
+    )");
+}
+
+void DataBase::deleteModulesCapabilities(){
+    executeRequest(R"(
+        DROP TABLE modules_capabilities;    
+    )");
+}
+
 void DataBase::deleteUsersAndServersTable(){
 
     /**
@@ -585,11 +706,7 @@ void DataBase::deleteModulesFillingTable(){
     )");
 }
 
-void DataBase::deleteModulesCapabilitiesTable(){
-    executeRequest(R"(
-        DROP TABLE modules_capabilities;    
-    )");
-}
+
 
 void DataBase::deleteServerFromTables(long long server_id){
 
@@ -764,26 +881,24 @@ void DataBase::updateDeviceType(int device_id, int device_type_id)
 
 
 void DataBase::addUser(const std::string& user_name, const std::string& password,
-                       long int tg_chat_id, bool status){
+                       long int tg_chat_id){
     
     /**
      * @brief Добавление пользователя 
      * @param user_name Имя пользователя
      * @param password Пароль пользователя
      * @param tg_chat_id id чата в telegram
-     * @param status Статус пользователя (authorized/non_authorized)
     */
 
     // Добавление в таблицу с пользователями
     std::string sql = R"(
-        INSERT INTO users (username, password, telegram_chat_id, status)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO users (username, password, telegram_chat_id)
+        VALUES (?, ?, ?)
     )";
     executeRequest(sql, {
         user_name,       
         password,        
-        tg_chat_id,   
-        status
+        tg_chat_id
     });
 }
 
@@ -896,6 +1011,40 @@ void DataBase::addDevice(long long module_id, int device_type_id,
     executeRequest(sql, {module_id, device_id});                
 }
 
+void DataBase::addCapability(long long module_type_id, const std::string &name){
+
+    /**
+     * @brief Добавление устройства 
+     * @param module_type_id id типа модуля, к которому подвязывается добавляемая возможность
+     * @param name имя возможности
+    */
+
+    // Добавление в таблицу возможностей
+    std::string sql = R"(
+        INSERT INTO capabilities(name)
+        VALUES (?)
+    )";
+    executeRequest(sql, {name});
+
+    // Получение id только что добавленной возможности
+    sql = R"(
+        SELECT 
+            id
+        FROM capabilities 
+        ORDER BY id DESC 
+        LIMIT 1;
+    )";
+    QueryResult response = executeQuery(sql);
+    long long capability_id = response.get<long long>(0, "id");
+
+    // Добавление в сводную таблицу типы модулей-возможности
+    sql = R"(
+        INSERT INTO module_types_capabilities(module_type_id, capability_id)
+        VALUES (?, ?)
+    )";
+    executeRequest(sql, {module_type_id, capability_id});  
+}
+
 void DataBase::addMQTTMessage(const std::string &topic, const std::string &payload,
                               bool incoming){
     
@@ -920,23 +1069,25 @@ void DataBase::addMQTTMessage(const std::string &topic, const std::string &paylo
 
 
 
-void DataBase::adminAddModuleType(const std::string &name, const std::string &description){
+void DataBase::addModuleType(const std::string &name, const std::string &description,
+                             long long creatorID){
 
     /**
      * @brief Добавление типа модуля
      * @param name имя добавлемого типа модуля
      * @param description описание добавляемого типа модуля
+     * @param creatorID id пользователя, который создал данный тип модуля
     */
 
     // Добавление в таблицу с типами модулей
     std::string sql = R"(
-        INSERT INTO module_types(name, description)
-        VALUES (?, ?)
+        INSERT INTO module_types(name, description, creatorID)
+        VALUES (?, ?, ?)
     )";
-    executeRequest(sql, {name, description});
+    executeRequest(sql, {name, description, creatorID});
 }
 
-void DataBase::adminFillModules(long long module_type_id, long long device_type_id){
+void DataBase::fillModules(long long module_type_id, long long device_type_id){
     
     /**
      * @brief Добавление данных в сводную таблицу типы модулей-типы устройств
@@ -975,14 +1126,48 @@ void DataBase::adminAddDeviceType(const std::string &name, const std::string &ro
 
 }
 
-void DataBase::adminAddModuleCapability(long long module_type_id, const std::string &capability){
+void DataBase::adminAddAction(const std::string &name){
+    
+    /**
+     * @brief Добавление действия
+     * @param name имя добавлемого действия
+    */
 
     std::string sql = R"(
-        INSERT INTO modules_capabilities(module_type_id, action)
+        INSERT INTO actions(name)
+        VALUES (?)
+    )";
+    executeRequest(sql, {name});
+}
+
+void DataBase::addCapabilitiesActions(long long capability_id, long long action_id){
+
+    /**
+     * @brief Добавление данных в сводную таблицу возможности - действия
+     * @param capability_id id возможности
+     * @param action_id id действия, которое входит в состав данной возможности
+    */
+
+    std::string sql = R"(
+        INSERT INTO capabilities_actions(capability_id, action_id)
         VALUES (?, ?)
     )";
-    executeRequest(sql, {module_type_id, capability});
+    executeRequest(sql, {capability_id, action_id});
+}
 
+void DataBase::adminAddActionsDeviceTypes(long long action_id, long long device_type_id){
+    
+    /**
+     * @brief Добавление данных в сводную таблицу действия - типы устройств
+     * @param action_id id действия
+     * @param device_type_id id типа устройства, которое выполняет данное действие
+    */
+
+    std::string sql = R"(
+        INSERT INTO actions_device_types(action_id, device_type_id)
+        VALUES (?, ?)
+    )";
+    executeRequest(sql, {action_id, device_type_id});
 }
 
 std::vector<json> DataBase::getListOfServers(long long user_id)

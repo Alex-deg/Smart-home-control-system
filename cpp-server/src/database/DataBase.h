@@ -73,13 +73,21 @@ public:
                                          // (с mqtt топиком для управления)
 
     void createModulesFillingTable(); // таблица описывающая функционал модуля 
-                                     // в абстракции. Сводная таблица типов модулей и
-                                     // типов устройств
-
-    void createModulesCapabilitiesTable();
+                                      // в абстракции. Сводная таблица типов модулей и
+                                      // типов устройств
 
     void createDeviceTypesTable();          
     void createDevicesTable();
+
+    void createActionsAndDeviceTypesTable();
+
+    void createModuleTypesAndCapabilitiesTable();
+
+    void createCapabilitiesTable();
+    
+    void createCapabilitiesAndActionsTable();
+
+    void createActionsTable();
     ///////////////////////////////////////////////////////////////////////////////////
 
 
@@ -93,17 +101,23 @@ public:
 
 
     //////////////////////////////////УДАЛЕНИЕ ТАБЛИЦ//////////////////////////////////
-    void deleteUsersTable();
-    void deleteServersTable();
-    void deleteModuleTypesTable();
-    void deleteModulesTable();
-    void deleteDeviceTypesTable();
-    void deleteDevicesTable();    
-    void deleteUsersAndServersTable();
-    void deleteServersAndModulesTable();
-    void deleteModulesAndDevicesTable();
-    void deleteModulesFillingTable();
-    void deleteModulesCapabilitiesTable();
+    void deleteUsersTable();                
+    void deleteUsersAndServersTable();      
+    void deleteServersTable();              
+    void deleteServersAndModulesTable();    
+    void deleteModuleTypesTable();          
+    void deleteModulesTable();              
+    void deleteModulesAndDevicesTable(); 
+    void deleteModulesFillingTable(); 
+    void deleteDeviceTypesTable();          
+    void deleteDevicesTable();
+    void deleteActionsAndDeviceTypes();
+    void deleteModuleTypesAndCapabilities();
+    void deleteCapabilitiesTable();
+    void deleteCapabilitiesAndActionsTable();
+    void deleteActionsTable();
+
+    void deleteModulesCapabilities();
     ///////////////////////////////////////////////////////////////////////////////////
 
 
@@ -133,15 +147,20 @@ public:
 
     ///////////////////////////ЗАПОЛНЕНИЕ ТАБЛИЦ ЗНАЧЕНИЯМИ////////////////////////////
     void addUser(const std::string& user_name, const std::string& password,
-                       long int tg_chat_id = 1, bool = false);
+                       long int tg_chat_id = 1);
     void addServer(long long user_id, const std::string& server_name, 
                    const std::string& server_key);
     void addModule(long long server_id, long long module_type_id, 
                    const std::string& alias);
     void addDevice(long long module_id, int device_type_id, 
                    const std::string &mqtt_topic); 
+    void addCapability(long long module_type_id, const std::string& name);
+    void addModuleType(const std::string& name, const std::string& description,
+                       long long creatorID);
+    void fillModules(long long module_type_id, long long device_type_id);
+    void addCapabilitiesActions(long long capability_id, long long action_id);
     void addMQTTMessage(const std::string &topic, const std::string &payload,
-                        bool incoming);    
+                        bool incoming);
     ///////////////////////////////////////////////////////////////////////////////////
 
 
@@ -161,11 +180,11 @@ public:
     ///////////////////////////////////////////////////////////////////////////////////
 
     /////////////ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ДЛЯ ЗАПОЛНЕНИЯ АБСТРАКТНЫХ ТАБЛИЦ"/////////////
-    void adminAddModuleType(const std::string& name, const std::string& description);
-    void adminFillModules(long long module_type_id, long long device_type_id);
+    
     void adminAddDeviceType(const std::string &name, const std::string &role, 
                             const std::string &description);
-    void adminAddModuleCapability(long long module_type_id, const std::string& capability);
+    void adminAddAction(const std::string& name);
+    void adminAddActionsDeviceTypes(long long action_id, long long device_type_id);
     ///////////////////////////////////////////////////////////////////////////////////
 };
 
