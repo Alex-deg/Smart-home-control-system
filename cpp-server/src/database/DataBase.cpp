@@ -1087,7 +1087,8 @@ void DataBase::addModuleType(const std::string &name, const std::string &descrip
     executeRequest(sql, {name, description, creatorID});
 }
 
-void DataBase::fillModules(long long module_type_id, long long device_type_id){
+void DataBase::fillModules(long long module_type_id, long long device_type_id,
+                           int count){
     
     /**
      * @brief Добавление данных в сводную таблицу типы модулей-типы устройств
@@ -1097,10 +1098,10 @@ void DataBase::fillModules(long long module_type_id, long long device_type_id){
     */
 
     std::string sql = R"(
-        INSERT INTO modules_filling (module_type_id, device_type_id)
-        VALUES (?, ?)
+        INSERT INTO modules_filling (module_type_id, device_type_id, count)
+        VALUES (?, ?, ?)
     )";
-    executeRequest(sql, {module_type_id, device_type_id});
+    executeRequest(sql, {module_type_id, device_type_id, count});
 }
 
 void DataBase::adminAddDeviceType(const std::string &name, const std::string &role, 
@@ -1315,20 +1316,23 @@ std::vector<std::string> DataBase::getCapabilities(long long module_id)
     return capabilities;
 }
 
-std::vector<std::string> DataBase::getListOfNecessaryDevicesForModule(long long module_id)
+std::vector<json> DataBase::getListOfNecessaryDevicesForModule(long long module_type_id)
 {
-    std::vector<std::string> necessary_devices;
+    std::vector<json> necessary_devices;
+    
     std::string sql = R"(
         SELECT 
-            name as device_type
-        FROM modules_filling mf
-        JOIN device_types dt ON mf.device_type_id = dt.id
-        WHERE module_id = ?;
+            device_type_id,
+            count
+        FROM modules_filling
+        WHERE module_type_id = ?
     )";
-    QueryResult response = executeQuery(sql, {module_id});
+    QueryResult response = executeQuery(sql, {module_type_id});
+
     for (int i = 0; i < response.size(); i++){
-        auto device_type = response.get<std::string>(i, "device_type");
-        necessary_devices.push_back(device_type);
+        long long device_type_id = response.get<long long>(i, "device_type_id");
+        long long count = response.get<long long>(i, "count");
+        necessary_devices.push_back({device_type_id, count});
     }
     return necessary_devices;
 }

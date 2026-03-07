@@ -47,13 +47,13 @@ crow::response API::addServer(long long user_id, const std::string &server_name,
     return res;
 }
 
-crow::response API::addModule(long long server_id, long long module_id, const std::string& alias)
+crow::response API::addModule(long long server_id, long long module_type_id, const std::string& alias)
 {
     crow::response res;
     res.add_header("Content-Type", "application/json; charset=utf-8");
     json resp;
     try{
-        db.addModule(server_id, module_id, alias);
+        db.addModule(server_id, module_type_id, alias);
         resp["status"] = true;
         resp["message"] = "Добавление модуля прошло успешно!";
     }
@@ -124,9 +124,9 @@ crow::response API::getModuleCapabilities(long long module_id)
     return res;
 }
 
-crow::response API::getModuleNecessaryDevices(long long module_id)
+crow::response API::getModuleNecessaryDevices(long long module_type_id)
 {
-    auto necessary_devices = db.getListOfNecessaryDevicesForModule(module_id);
+    auto necessary_devices = db.getListOfNecessaryDevicesForModule(module_type_id);
     crow::response res;
     res.add_header("Content-Type", "application/json; charset=utf-8");
     res.write(json(necessary_devices).dump(2)); 
@@ -375,6 +375,11 @@ void API::setupRoutes() {
     CROW_ROUTE(app, "/api/users/<int>/servers/<int>/modules/types")([this]
     (int user_id, int server_id){
         return this->getModulesTypes(user_id);
+    });
+
+    CROW_ROUTE(app, "/api/users/<int>/servers/<int>/modules/<int>/necessary_devices")([this]
+    (const crow::request& req, int user_id, int server_id, int module_id){
+        return this->getModuleNecessaryDevices(module_id);
     });
 
     CROW_ROUTE(app, "/api/users/<int>/servers/<int>/modules/<int>/capabilities")([this]

@@ -18,7 +18,7 @@ private:
 
     crow::response addServer(long long user_id, const std::string& server_name, 
                              const std::string& server_key);
-    crow::response addModule(long long server_id, long long module_id, const std::string& alias);
+    crow::response addModule(long long server_id, long long module_type_id, const std::string& alias);
 
     crow::response getServers(long long user_id);
     crow::response getModules(long long server_id);
@@ -33,7 +33,7 @@ private:
     crow::response getDeviceCapabilities(long long device_id);
     //////////////////////////////////////////////////////////
 
-    crow::response getModuleNecessaryDevices(long long module_id);
+    crow::response getModuleNecessaryDevices(long long module_type_id);
 
     crow::response updateServerName(long long server_id, const std::string& new_server_name);
 

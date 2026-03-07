@@ -157,7 +157,7 @@ public:
     void addCapability(long long module_type_id, const std::string& name);
     void addModuleType(const std::string& name, const std::string& description,
                        long long creatorID);
-    void fillModules(long long module_type_id, long long device_type_id);
+    void fillModules(long long module_type_id, long long device_type_id, int count);
     void addCapabilitiesActions(long long capability_id, long long action_id);
     void addMQTTMessage(const std::string &topic, const std::string &payload,
                         bool incoming);
@@ -170,8 +170,8 @@ public:
     std::vector<json> getListOfDevices();
     std::vector<json> getListOfModules(long long server_id);
     std::vector<json> getListOfAllModuleTypes();
-    std::vector<std::string> getCapabilities(long long module_id);   
-    std::vector<std::string> getListOfNecessaryDevicesForModule(long long module_id);
+    std::vector<std::string> getCapabilities(long long module_id);
+    std::vector<json> getListOfNecessaryDevicesForModule(long long module_type_id);
     long long getModuleIDFromRecordID(long long record_id);
     long long getUserIDbyTGChatID(long long tg_chat_id);
     std::pair<bool, long long> checkUserAuthentication(const std::string &username, const std::string &password);
