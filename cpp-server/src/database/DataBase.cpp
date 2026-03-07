@@ -976,21 +976,22 @@ void DataBase::addModule(long long server_id, long long module_type_id,
 }
 
 void DataBase::addDevice(long long module_id, int device_type_id, 
-                         const std::string &mqtt_topic){
+                         const std::string &mqtt_topic, const std::string& alias){
     
     /**
      * @brief Добавление устройства 
      * @param module_id id модуля, к которому подвязывается добавляемое устройство
      * @param device_type_id id типа устройства, к которому относится добавляемое устройство
      * @param mqtt_topic mqtt топик, по которому будет осуществляться взаимодействие с сервером
-    */
+     * @param alias псевдоним для случая, когда в одном модуле представлены несколько устройств одного типа
+     */
 
     // Добавление в таблицу устройств
     std::string sql = R"(
-        INSERT INTO devices (device_type_id, mqtt_topic)
-        VALUES (?, ?)
+        INSERT INTO devices (device_type_id, mqtt_topic, alias)
+        VALUES (?, ?, ?)
     )";
-    executeRequest(sql, {device_type_id, mqtt_topic});
+    executeRequest(sql, {device_type_id, mqtt_topic, alias});
 
     // Получение id только что добавленного устройства
     sql = R"(

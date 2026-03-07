@@ -66,6 +66,24 @@ crow::response API::addModule(long long server_id, long long module_type_id, con
     return res;
 }
 
+crow::response API::addDevice(long long module_id, long long device_type_id, const std::string &mqtt_topic, const std::string &alias){
+    crow::response res;
+    res.add_header("Content-Type", "application/json; charset=utf-8");
+    json resp;
+    try{
+        db.addDevice(module_id, device_type_id, mqtt_topic, alias);
+        resp["status"] = true;
+        resp["message"] = "Добавление устройства прошло успешно!";
+    }
+    catch(DataBaseException &e){
+        std::cerr << "Error: " << e.what() << std::endl;
+        resp["status"] = false;
+        resp["message"] = "Добавление устройства прошло с ошибкой";
+    }            
+    res.write(json(resp).dump(2));           
+    return res;
+}
+
 crow::response API::getServers(long long user_id)
 {
     auto devices = db.getListOfServers(user_id);
@@ -296,7 +314,13 @@ std::string generateID(size_t length = 16) {
     return id;
 }
 
-void API::setupRoutes() {
+std::string API::generateMQTTTopic()
+{
+    return "mqtt_topic";
+}
+
+void API::setupRoutes()
+{
 
     CROW_ROUTE(app, "/api/users/auth").methods("POST"_method)
     ([this](const crow::request& req){
@@ -387,6 +411,21 @@ void API::setupRoutes() {
         return this->getModuleCapabilities(module_id);        
     });
 
+    CROW_ROUTE(app, "/api/users/<int>/servers/<int>/modules/<int>/add_devices").methods("POST"_method)
+    ([this](const crow::request& req, int user_id, int server_id, int method_id){
+        
+        auto json = crow::json::load(req.body);
+
+        if (!json || !json.has("device_type_id") || !json.has("alias")){
+            return crow::response(400, "Invalid JSON or missing fields");
+        }
+
+        long long device_type_id = json["device_type_id"].i();
+        std::string alias = json["alias"].s();
+
+        return this->addDevice(server_id, device_type_id, generateMQTTTopic(), alias);
+    });
+
     CROW_ROUTE(app, "/api/users/<int>/servers/<int>/modules/add").methods("POST"_method)
     ([this](const crow::request& req, int user_id, int server_id){
         
@@ -406,5 +445,4 @@ void API::setupRoutes() {
     ([this](const crow::request& req, int user_id, int server_id, int module_id){       
         return this->deleteModule(module_id);
     });
-
 }
