@@ -84,7 +84,7 @@ crow::response API::getModules(long long server_id)
     return res;
 }
 
-crow::response API::getAllModules()
+crow::response API::getModulesTypes(long long user_id)
 {
     auto devices = db.getListOfAllModuleTypes();
     crow::response res;
@@ -295,133 +295,6 @@ std::string generateID(size_t length = 16) {
 }
 
 void API::setupRoutes() {
-    // CROW_ROUTE(app, "/")([this](){
-    //     return this->handleRoot();
-    // });
-    
-    CROW_ROUTE(app, "/api/devices")([this](){
-        return this->getDevices();
-    });
-    
-    CROW_ROUTE(app, "/api/devices/actuators")([this](){
-        return this->getActuatorsDevices();
-    });
-
-    CROW_ROUTE(app, "/api/servers/add").methods("POST"_method)
-    ([this](const crow::request& req){
-        
-        auto json = crow::json::load(req.body);
-
-        if (!json || !json.has("tg_chat_id") || !json.has("server_name")){
-            return crow::response(400, "Invalid JSON or missing fields");
-        }
-
-        long long user_id = db.getUserIDbyTGChatID(json["tg_chat_id"].i());
-        std::string server_name = json["server_name"].s();
-        std::string server_key = generateID();
-
-        return this->addServer(user_id, server_name, server_key);
-    });
-
-    CROW_ROUTE(app, "/api/servers/edit").methods("PATCH"_method)
-    ([this](const crow::request& req){
-        
-        auto json = crow::json::load(req.body);
-
-        if (!json || !json.has("server_id") || !json.has("new_server_name")){
-            return crow::response(400, "Invalid JSON or missing fields");
-        }
-
-        long long server_id = json["server_id"].i();
-        std::string server_name = json["new_server_name"].s();
-
-        return this->updateServerName(server_id, server_name);
-    });
-
-    CROW_ROUTE(app, "/api/servers/delete").methods("DELETE"_method)
-    ([this](const crow::request& req){
-        
-        auto json = crow::json::load(req.body);
-
-        if (!json || !json.has("server_id")){
-            return crow::response(400, "Invalid JSON or missing fields");
-        }
-
-        long long server_id = json["server_id"].i();
-
-        return this->deleteServer(server_id);
-    });
-
-    CROW_ROUTE(app, "/api/servers")([this](const crow::request& req){
-        auto json = crow::json::load(req.body);
-        if (!json || !json.has("tg_chat_id")) {
-            return crow::response(400, "Invalid JSON or missing fields");
-        }
-        long long tg_chat_id = json["tg_chat_id"].i();
-        long long user_id = db.getUserIDbyTGChatID(tg_chat_id);
-        return this->getServers(user_id);        
-    });
-
-    CROW_ROUTE(app, "/api/modules/all")([this](){
-        return this->getAllModules();        
-    });
-
-    CROW_ROUTE(app, "/api/modules")([this](const crow::request& req){
-        auto json = crow::json::load(req.body);
-        if (!json || !json.has("server_id")) {
-            return crow::response(400, "Invalid JSON or missing fields");
-        }
-        long long server_id = json["server_id"].i();
-        return this->getModules(server_id);        
-    });
-
-    CROW_ROUTE(app, "/api/modules/capabilities")([this](const crow::request& req){
-        auto json = crow::json::load(req.body);
-        if (!json || !json.has("module_id")) {
-            return crow::response(400, "Invalid JSON or missing fields");
-        }
-        long long module_id = json["module_id"].i();
-        return this->getModuleCapabilities(module_id);        
-    });
-
-    CROW_ROUTE(app, "/api/modules/necessary_devices")([this](const crow::request& req){
-        auto json = crow::json::load(req.body);
-        if (!json || !json.has("module_id")) {
-            return crow::response(400, "Invalid JSON or missing fields");
-        }
-        long long module_id = json["module_id"].i();
-        return this->getModuleNecessaryDevices(module_id);        
-    });
-
-    CROW_ROUTE(app, "/api/modules/add").methods("POST"_method)
-    ([this](const crow::request& req){
-        
-        auto json = crow::json::load(req.body);
-
-        if (!json || !json.has("module_type_id") || !json.has("server_id") || !json.has("alias")){
-            return crow::response(400, "Invalid JSON or missing fields");
-        }
-
-        long long server_id = json["server_id"].i();
-        long long module_type_id = json["module_type_id"].i();
-        std::string alias = json["alias"].s();
-
-        return this->addModule(server_id, module_type_id, alias);
-    });
-
-    CROW_ROUTE(app, "/api/modules/delete").methods("DELETE"_method)
-    ([this](const crow::request& req){
-        
-        auto json = crow::json::load(req.body);
-
-        if (!json || !json.has("module_id")){
-            return crow::response(400, "Invalid JSON or missing fields");
-        }
-
-        long long module_id = json["module_id"].i();
-        
-        return this->deleteModule(module_id);
-    });
 
     CROW_ROUTE(app, "/api/users/auth").methods("POST"_method)
     ([this](const crow::request& req){
@@ -447,25 +320,84 @@ void API::setupRoutes() {
         
         std::string username = json["username"].s();
         std::string password = json["password"].s();
-        long int tg_chat_id = json["tg_chat_id"].i();
+        long int tg_chat_id  = json["tg_chat_id"].i();
 
         return registration(username, password, tg_chat_id);
     });
 
-    CROW_ROUTE(app, "/api/actions/single").methods("POST"_method)
-    ([this](const crow::request& req){
-        auto json = crow::json::load(req.body);
+    CROW_ROUTE(app, "/api/users/<int>/servers")([this]
+    (const crow::request& req, int user_id){
+        return this->getServers(user_id);
+    });
+
+    CROW_ROUTE(app, "/api/users/<int>/servers/add").methods("POST"_method)
+    ([this](const crow::request& req, int user_id){
         
-        if (!json || !json.has("id") || !json.has("action")) {
+        auto json = crow::json::load(req.body);
+
+        if (!json || !json.has("server_name")){
             return crow::response(400, "Invalid JSON or missing fields");
         }
-        
-        long long int id = json["id"].i();
-        std::string action = json["action"].s();
 
-        return singleAction(id, action);
+        std::string server_name = json["server_name"].s();
+        std::string server_key = generateID();
+
+        return this->addServer(user_id, server_name, server_key);
+    });
+
+    CROW_ROUTE(app, "/api/users/<int>/servers/<int>/edit").methods("PATCH"_method)
+    ([this](const crow::request& req, int user_id, int server_id){
+        
+        auto json = crow::json::load(req.body);
+
+        if (!json || !json.has("new_server_name")){
+            return crow::response(400, "Invalid JSON or missing fields");
+        }
+
+        std::string server_name = json["new_server_name"].s();
+
+        return this->updateServerName(server_id, server_name);
+    });
+
+    CROW_ROUTE(app, "/api/users/<int>/servers/<int>/delete").methods("DELETE"_method)
+    ([this](const crow::request& req, int user_id, int server_id){
+        return this->deleteServer(server_id);
     });
 
 
+    CROW_ROUTE(app, "/api/users/<int>/servers/<int>/modules")([this]
+    (const crow::request& req, int user_id, int server_id){
+        return this->getModules(server_id);        
+    });
+
+    CROW_ROUTE(app, "/api/users/<int>/servers/<int>/modules/types")([this]
+    (int user_id, int server_id){
+        return this->getModulesTypes(user_id);
+    });
+
+    CROW_ROUTE(app, "/api/users/<int>/servers/<int>/modules/<int>/capabilities")([this]
+    (const crow::request& req, int user_id, int server_id, int module_id){
+        return this->getModuleCapabilities(module_id);        
+    });
+
+    CROW_ROUTE(app, "/api/users/<int>/servers/<int>/modules/add").methods("POST"_method)
+    ([this](const crow::request& req, int user_id, int server_id){
+        
+        auto json = crow::json::load(req.body);
+
+        if (!json || !json.has("module_type_id") || !json.has("alias")){
+            return crow::response(400, "Invalid JSON or missing fields");
+        }
+
+        long long module_type_id = json["module_type_id"].i();
+        std::string alias = json["alias"].s();
+
+        return this->addModule(server_id, module_type_id, alias);
+    });
+
+    CROW_ROUTE(app, "/api/users/<int>/servers/<int>/modules/<int>/delete").methods("DELETE"_method)
+    ([this](const crow::request& req, int user_id, int server_id, int module_id){       
+        return this->deleteModule(module_id);
+    });
 
 }
