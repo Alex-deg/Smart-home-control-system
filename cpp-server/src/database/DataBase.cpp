@@ -1359,23 +1359,24 @@ long long DataBase::getUserIDbyTGChatID(long long tg_chat_id)
     return response.get<long long>(0, 0);
 }
 
-bool DataBase::checkUserAuthentication(const std::string &username, const std::string &password)
+std::pair<bool, long long> DataBase::checkUserAuthentication(const std::string &username, const std::string &password)
 {
     std::string sql = R"(
         SELECT 
-            users.username,
-            users.password 
+            id,
+            username,
+            password 
         FROM users WHERE username = ?
     )";
 
     QueryResult response = executeQuery(sql, {username});
 
     if (response.size() == 0)
-        return false;
+        return {false, -1};
     if (response.get<std::string>(0, "password") != password)
-        return false;
+        return {false, -1};
 
-    return true;
+    return {true, response.get<long long>(0, "id")};
 }
 
 std::string DataBase::getMQTTTopic(unsigned int id){

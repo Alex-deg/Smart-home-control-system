@@ -174,7 +174,7 @@ public:
     std::vector<std::string> getListOfNecessaryDevicesForModule(long long module_id);
     long long getModuleIDFromRecordID(long long record_id);
     long long getUserIDbyTGChatID(long long tg_chat_id);
-    bool checkUserAuthentication(const std::string &username, const std::string &password);
+    std::pair<bool, long long> checkUserAuthentication(const std::string &username, const std::string &password);
     std::string getMQTTTopic(unsigned int id);
     //int getIDFromDeviceName(const std::string &device_name);
     ///////////////////////////////////////////////////////////////////////////////////

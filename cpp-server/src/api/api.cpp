@@ -192,7 +192,8 @@ crow::response API::auth(const std::string &username, const std::string &passwor
     crow::response res;
     res.add_header("Content-Type", "application/json; charset=utf-8");
     json resp;
-    if (db.checkUserAuthentication(username, password)){
+    auto info = db.checkUserAuthentication(username, password);
+    if (info.first){
         resp["status"] = true;
         resp["message"] = "Аутентификация прошла успешно";
     }
@@ -200,6 +201,7 @@ crow::response API::auth(const std::string &username, const std::string &passwor
         resp["status"] = false;
         resp["message"] = "У Вас нет учетной записи.\nДля регистрации нажмите кнопку 'Регистрация'";
     }
+    resp["user_id"] = info.second;
     res.write(json(resp).dump(2)); 
     return res;
 }
