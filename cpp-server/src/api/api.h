@@ -22,7 +22,7 @@ private:
 
     crow::response getServers(long long user_id);
     crow::response getModules(long long server_id);
-    crow::response getAllModules();
+    crow::response getModulesTypes(long long user_id);
     crow::response getDevices();
     crow::response getActuatorsDevices();
     
