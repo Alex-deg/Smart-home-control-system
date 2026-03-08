@@ -40,7 +40,10 @@ private:
 
     crow::response auth(const std::string &username, const std::string &password);
     crow::response registration(const std::string &username, const std::string &password, long int tg_chat_id);
-    crow::response singleAction(long long int device_id, const std::string &action);
+
+    crow::response capabilityHandler(long long module_id, long long capability_id);
+    crow::response actionHandler(json action_info, json device_info);
+    crow::response singleAction(const std::string& mqtt_topic , const std::string &action);
     
     // crow::response generateMQTTTopic(long long record_id);
     std::string generateMQTTTopic();

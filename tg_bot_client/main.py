@@ -370,9 +370,14 @@ def callback_message(callback):
     elif 'capability:' in callback.data:
         str_without_tag = callback.data[((callback.data.find(':')) + 1):]
         current_capability_name = str_without_tag[:(str_without_tag.find(':'))]
-        current_module_id = int(str_without_tag[(str_without_tag.find(':')) + 1:])
+        current_capability_id = int(str_without_tag[(str_without_tag.find(':')) + 1:])
         bot.send_message(callback.message.chat.id, \
                          f"Выбрана функция: {current_capability_name}\n")
+        url = BASE_API_URL + f'/api/users/{temp_data[callback.message.chat.id]['user_id']}/' + \
+                             f'servers/{temp_data[callback.message.chat.id]['current_server_id']}/' + \
+                             f'modules/{temp_data[callback.message.chat.id]['current_module_id']}/' + \
+                             f'capabilities/{current_capability_id}'
+        response = requests.post(url)
 
     elif callback.data == 'back_to_the_servers_list':
         url = BASE_API_URL + f'/api/users/{temp_data[callback.message.chat.id]['user_id']}/servers'
