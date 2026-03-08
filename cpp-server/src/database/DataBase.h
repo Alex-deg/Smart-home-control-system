@@ -150,10 +150,10 @@ public:
                        long int tg_chat_id = 1);
     void addServer(long long user_id, const std::string& server_name, 
                    const std::string& server_key);
-    void addModule(long long server_id, long long module_type_id, 
+    long long addModule(long long server_id, long long module_type_id, 
                    const std::string& alias);
     void addDevice(long long module_id, int device_type_id, 
-                   const std::string &mqtt_topic); 
+                   const std::string &mqtt_topic, const std::string& alias); 
     void addCapability(long long module_type_id, const std::string& name);
     void addModuleType(const std::string& name, const std::string& description,
                        long long creatorID);

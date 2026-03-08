@@ -939,7 +939,7 @@ void DataBase::addServer(long long user_id, const std::string &server_name,
     executeRequest(sql, {user_id, server_id});
 }
 
-void DataBase::addModule(long long server_id, long long module_type_id, 
+long long DataBase::addModule(long long server_id, long long module_type_id, 
                          const std::string& alias){
 
     /**
@@ -973,24 +973,27 @@ void DataBase::addModule(long long server_id, long long module_type_id,
         VALUES (?, ?)
     )";
     executeRequest(sql, {server_id, module_id});
+
+    return module_id;
 }
 
 void DataBase::addDevice(long long module_id, int device_type_id, 
-                         const std::string &mqtt_topic){
+                         const std::string &mqtt_topic, const std::string& alias){
     
     /**
      * @brief Добавление устройства 
      * @param module_id id модуля, к которому подвязывается добавляемое устройство
      * @param device_type_id id типа устройства, к которому относится добавляемое устройство
      * @param mqtt_topic mqtt топик, по которому будет осуществляться взаимодействие с сервером
-    */
+     * @param alias псевдоним для случая, когда в одном модуле представлены несколько устройств одного типа
+     */
 
     // Добавление в таблицу устройств
     std::string sql = R"(
-        INSERT INTO devices (device_type_id, mqtt_topic)
-        VALUES (?, ?)
+        INSERT INTO devices (device_type_id, mqtt_topic, alias)
+        VALUES (?, ?, ?)
     )";
-    executeRequest(sql, {device_type_id, mqtt_topic});
+    executeRequest(sql, {device_type_id, mqtt_topic, alias});
 
     // Получение id только что добавленного устройства
     sql = R"(
@@ -1292,7 +1295,7 @@ std::vector<std::string> DataBase::getCapabilities(long long module_id)
     std::vector<std::string> capabilities;
 
     std::string sql = R"(
-        SELECT
+       SELECT
             module_type_id
         FROM modules
         WHERE id = ?
@@ -1300,17 +1303,18 @@ std::vector<std::string> DataBase::getCapabilities(long long module_id)
 
     QueryResult response = executeQuery(sql, {module_id});
     long long module_type_id = response.get<long long>(0, "module_type_id");
-
+    
     sql = R"(
         SELECT 
-            action as module_capability
-        FROM modules_capabilities
+            c.name
+        FROM module_types_capabilities mtc
+        JOIN capabilities c ON mtc.capability_id = c.id
         WHERE module_type_id = ?;
     )";
 
     response = executeQuery(sql, {module_type_id});
     for (int i = 0; i < response.size(); i++){
-        auto capability = response.get<std::string>(i, "module_capability");
+        auto capability = response.get<std::string>(i, "name");
         capabilities.push_back(capability);
     }
     return capabilities;
@@ -1329,10 +1333,14 @@ std::vector<json> DataBase::getListOfNecessaryDevicesForModule(long long module_
     )";
     QueryResult response = executeQuery(sql, {module_type_id});
 
+    json cur_dev;
+
     for (int i = 0; i < response.size(); i++){
         long long device_type_id = response.get<long long>(i, "device_type_id");
         long long count = response.get<long long>(i, "count");
-        necessary_devices.push_back({device_type_id, count});
+        cur_dev["device_type_id"] = device_type_id;
+        cur_dev["count"] = count;
+        necessary_devices.push_back(cur_dev);
     }
     return necessary_devices;
 }

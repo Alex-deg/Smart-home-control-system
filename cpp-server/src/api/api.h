@@ -18,20 +18,18 @@ private:
 
     crow::response addServer(long long user_id, const std::string& server_name, 
                              const std::string& server_key);
-    crow::response addModule(long long server_id, long long module_type_id, const std::string& alias);
+    crow::response addModule(long long server_id, long long module_type_id, 
+                             const std::string& alias);
 
+    crow::response addDevice(long long module_id, long long device_type_id, 
+                             const std::string& mqtt_topic, const std::string& alias);
     crow::response getServers(long long user_id);
     crow::response getModules(long long server_id);
     crow::response getModulesTypes(long long user_id);
     crow::response getDevices();
     crow::response getActuatorsDevices();
     
-    //////////////////////////////////////////////////////////
     crow::response getModuleCapabilities(long long module_id);
-    ////////////////РАЗБИТЬ НА СЛЕДУЮЩИЕ МЕТОДЫ///////////////
-    crow::response getModuleDevices(long long module_id);
-    crow::response getDeviceCapabilities(long long device_id);
-    //////////////////////////////////////////////////////////
 
     crow::response getModuleNecessaryDevices(long long module_type_id);
 
@@ -45,7 +43,7 @@ private:
     crow::response singleAction(long long int device_id, const std::string &action);
     
     // crow::response generateMQTTTopic(long long record_id);
-
+    std::string generateMQTTTopic();
     void setupRoutes();
 
 public:
