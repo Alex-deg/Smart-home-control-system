@@ -167,15 +167,16 @@ public:
 
     ////////////////////////////ПОЛУЧЕНИЕ ДАННЫХ ИЗ ТАБЛИЦ/////////////////////////////
     std::vector<json> getListOfServers(long long user_id);
-    std::vector<json> getListOfDevices();
     std::vector<json> getListOfModules(long long server_id);
     std::vector<json> getListOfAllModuleTypes();
-    std::vector<std::string> getCapabilities(long long module_id);
+    std::vector<json> getCapabilities(long long module_id);
     std::vector<json> getListOfNecessaryDevicesForModule(long long module_type_id);
+    std::vector<json> getListOfActions(long long capability_id);
+    std::vector<json> getListOfDeviceTypes(long long action_id);
+    std::vector<json> getListOfDevicesForActions(long long module_id, long long capability_id);
     long long getModuleIDFromRecordID(long long record_id);
     long long getUserIDbyTGChatID(long long tg_chat_id);
     std::pair<bool, long long> checkUserAuthentication(const std::string &username, const std::string &password);
-    std::string getMQTTTopic(unsigned int id);
     //int getIDFromDeviceName(const std::string &device_name);
     ///////////////////////////////////////////////////////////////////////////////////
 

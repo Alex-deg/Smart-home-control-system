@@ -112,28 +112,6 @@ crow::response API::getModulesTypes(long long user_id)
     return res;
 }
 
-crow::response API::getDevices()
-{
-    auto devices = db.getListOfDevices();
-    crow::response res;
-    res.add_header("Content-Type", "application/json; charset=utf-8");
-    res.write(json(devices).dump(2));  
-    return res;
-}
-
-crow::response API::getActuatorsDevices()
-{
-    auto devices = db.getListOfDevices();
-    for (int i = 0; i < devices.size(); i++){
-        if (devices[i]["role"] != "actuator")
-            devices.erase(devices.begin() + i);
-    }
-    crow::response res;
-    res.add_header("Content-Type", "application/json; charset=utf-8");
-    res.write(json(devices).dump(2));  
-    return res;
-}
-
 crow::response API::getModuleCapabilities(long long module_id)
 {
     auto capabilities = db.getCapabilities(module_id);
@@ -244,45 +222,53 @@ crow::response API::registration(const std::string &username, const std::string 
     return res;
 }
 
-crow::response API::singleAction(long long int device_id, const std::string &action)
+crow::response API::capabilityHandler(long long module_id, long long capability_id)
+{
+    crow::response res;
+    res.add_header("Content-Type", "application/json; charset=utf-8");
+    json resp;
+
+    std::cout << "DONE1" << std::endl;
+    std::vector<json> actions_devices = db.getListOfDevicesForActions(module_id, capability_id);
+    std::cout << "DONE" << std::endl;
+    for (auto &&action_device : actions_devices){
+        actionHandler(action_device["action"], action_device["device"]);
+    }
+    return res;
+}
+
+crow::response API::actionHandler(json action_info, json device_info)
+{
+    crow::response res;
+    res.add_header("Content-Type", "application/json; charset=utf-8");
+    json resp;
+
+    if (action_info["name"] == "turn_on"){
+        res = singleAction(device_info["mqtt_topic"], action_info["name"]);
+    }
+
+    return res;
+}
+
+crow::response API::singleAction(const std::string& mqtt_topic , const std::string &action)
 {
     crow::response res;
     res.add_header("Content-Type", "application/json; charset=utf-8");
     json resp;
     
     try {
-        // 1. Формируем MQTT команду
+
         json mqtt_command;
         mqtt_command["action"] = action;
-        mqtt_command["timestamp"] = std::time(nullptr);
-        mqtt_command["source"] = "api";  // Откуда пришла команда
-        
-        // 2. Получаем MQTT топик устройства из БД
-        std::string mqtt_topic;
-        try {
-            
-            mqtt_topic = db.getMQTTTopic(device_id);
-
-            if (mqtt_topic.find("/command") == std::string::npos) {
-                    mqtt_topic += "/command";
-            }
-        } catch (const std::exception& e) {
-            mqtt_topic = "devices/" + std::to_string(device_id) + "/command";
-        }
-        
-        // 3. Публикуем команду через MQTT
+                
         if (mqtt.isConnected()) {
             mqtt.publish(mqtt_topic, mqtt_command.dump(), 1, false);
-                
             resp["status"] = true;
-            resp["message"] = "Команда '" + action + "' отправлена устройству №" + 
-                            std::to_string(device_id);
-            resp["mqtt_topic"] = mqtt_topic;
-            resp["command"] = mqtt_command;
+            resp["message"] = "Команда '" + action + "' отправлена";
         } else {
             resp["status"] = "error";
             resp["message"] = "MQTT не подключен. Команда не отправлена.";
-            res.code = 503; // Service Unavailable
+            res.code = 503; 
         }
         
     } catch (const std::exception& e) {
@@ -412,6 +398,11 @@ void API::setupRoutes()
         return this->getModuleCapabilities(module_id);   
     });
 
+    CROW_ROUTE(app, "/api/users/<int>/servers/<int>/modules/<int>/capabilities/<int>").methods("POST"_method)
+    ([this](const crow::request& req, int user_id, int server_id, int module_id, int capability_id){
+        return this->capabilityHandler(module_id, capability_id);   
+    });
+
     CROW_ROUTE(app, "/api/users/<int>/servers/<int>/modules/<int>/add_devices").methods("POST"_method)
     ([this](const crow::request& req, int user_id, int server_id, int method_id){
         
@@ -446,4 +437,6 @@ void API::setupRoutes()
     ([this](const crow::request& req, int user_id, int server_id, int module_id){       
         return this->deleteModule(module_id);
     });
+
+
 }

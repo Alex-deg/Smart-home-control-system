@@ -372,22 +372,22 @@ void MQTTClient::processIncomingMessage(const std::string& topic,
     // }
 }
 
-void MQTTClient::sendDeviceCommand(int device_id, const std::string& command) {
-    try {
-        // Получаем MQTT топик устройства из БД
+// void MQTTClient::sendDeviceCommand(int device_id, const std::string& command) {
+//     try {
+//         // Получаем MQTT топик устройства из БД
                 
-        std::string mqtt_topic = db_.getMQTTTopic(device_id);
+//         std::string mqtt_topic = db_.getMQTTTopic(device_id);
         
-        // Добавляем /command к топику
-        std::string command_topic = mqtt_topic + "/command";
+//         // Добавляем /command к топику
+//         std::string command_topic = mqtt_topic + "/command";
         
-        // Публикуем команду
-        publish(command_topic, command, 1, false);
+//         // Публикуем команду
+//         publish(command_topic, command, 1, false);
         
-        std::cout << "Sent command to device " << device_id 
-                    << " on topic " << command_topic << std::endl;
+//         std::cout << "Sent command to device " << device_id 
+//                     << " on topic " << command_topic << std::endl;
         
-    } catch (const std::exception& e) {
-        std::cerr << "Error sending device command: " << e.what() << std::endl;
-    }
-}
+//     } catch (const std::exception& e) {
+//         std::cerr << "Error sending device command: " << e.what() << std::endl;
+//     }
+// }

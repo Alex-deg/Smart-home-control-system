@@ -1210,37 +1210,6 @@ std::vector<json> DataBase::getListOfServers(long long user_id)
 }
 
 
-
-std::vector<json> DataBase::getListOfDevices()
-{
-    std::vector<json> list_of_devices;
-    std::string sql = R"(
-        SELECT 
-            d.id as device_id,
-            d.name as device_name,
-            dt.name as device_type,
-            dt.role as device_role,
-            dt.capabilities as device_actions  
-        FROM devices d
-        JOIN device_types dt ON d.device_type_id = dt.id
-        ORDER BY d.name;
-    )";
-    QueryResult response = executeQuery(sql);
-    json device;
-    
-    for (size_t i = 0; i < response.rows.size(); i++){
-        device["id"] = response.get<long long>(i, "device_id");
-        device["name"] = response.get<std::string>(i, "device_name");
-        device["type"] = response.get<std::string>(i, "device_type");
-        device["role"] = response.get<std::string>(i, "device_role");
-        device["actions"] = json::parse(response.get<std::string>(i, "device_actions"));
-        list_of_devices.push_back(device);
-    }
-    return list_of_devices;
-}
-
-
-
 std::vector<json> DataBase::getListOfModules(long long server_id)
 {
     std::vector<json> list_of_modules;
@@ -1290,12 +1259,12 @@ std::vector<json> DataBase::getListOfAllModuleTypes()
     return list_of_modules;
 }
 
-std::vector<std::string> DataBase::getCapabilities(long long module_id)
+std::vector<json> DataBase::getCapabilities(long long module_id)
 {
-    std::vector<std::string> capabilities;
+    std::vector<json> capabilities;
 
     std::string sql = R"(
-       SELECT
+        SELECT
             module_type_id
         FROM modules
         WHERE id = ?
@@ -1306,6 +1275,7 @@ std::vector<std::string> DataBase::getCapabilities(long long module_id)
     
     sql = R"(
         SELECT 
+            c.id,
             c.name
         FROM module_types_capabilities mtc
         JOIN capabilities c ON mtc.capability_id = c.id
@@ -1313,9 +1283,13 @@ std::vector<std::string> DataBase::getCapabilities(long long module_id)
     )";
 
     response = executeQuery(sql, {module_type_id});
+
+    json cur_capability;
+
     for (int i = 0; i < response.size(); i++){
-        auto capability = response.get<std::string>(i, "name");
-        capabilities.push_back(capability);
+        cur_capability["capability_id"] = response.get<long long>(i, "id");
+        cur_capability["capability_name"] = response.get<std::string>(i, "name");
+        capabilities.push_back(cur_capability);
     }
     return capabilities;
 }
@@ -1343,6 +1317,93 @@ std::vector<json> DataBase::getListOfNecessaryDevicesForModule(long long module_
         necessary_devices.push_back(cur_dev);
     }
     return necessary_devices;
+}
+
+std::vector<json> DataBase::getListOfActions(long long capability_id){
+
+    std::vector<json> actions;
+
+    std::string sql = R"(
+        SELECT 
+            a.id,
+            a.name    
+        FROM capabilities_actions ca
+        JOIN actions a ON ca.action_id = a.id
+        WHERE capability_id = ?;
+    )";
+
+    QueryResult response = executeQuery(sql, {capability_id});
+    json cur_action;
+    for (int i = 0; i < response.size(); i++){
+        cur_action["id"] = response.get<long long>(i, "id");
+        cur_action["name"] = response.get<std::string>(i, "name");
+        actions.push_back(cur_action);
+    }
+    return actions;
+}
+
+std::vector<json> DataBase::getListOfDeviceTypes(long long action_id)
+{
+    std::vector<json> device_types;
+
+    std::string sql = R"(
+        SELECT
+            dt.id,
+            dt.name,
+            dt.role 
+        FROM actions_device_types adt
+        JOIN device_types dt ON adt.device_type_id = dt.id
+        WHERE action_id = ?
+    )";
+
+    QueryResult response = executeQuery(sql, {action_id});
+    json cur_dev_type;
+    for (int i = 0; i < response.size(); i++){
+        cur_dev_type["id"] = response.get<long long>(i, "id");
+        cur_dev_type["name"] = response.get<std::string>(i, "name");
+        cur_dev_type["role"] = response.get<std::string>(i, "role");
+        device_types.push_back(cur_dev_type);
+    }
+    return device_types;
+}
+
+std::vector<json> DataBase::getListOfDevicesForActions(long long module_id, long long capability_id)
+{
+    std::vector<json> actions_devices;
+    std::cout << "DONE2" << std::endl;
+    std::vector<json> actions = getListOfActions(capability_id);
+    std::cout << "DONE3" << std::endl;
+    std::string sql = R"(
+        SELECT
+            d.id,
+            d.mqtt_topic,
+            d.alias
+        FROM modules_devices md
+        JOIN devices d ON md.device_id = d.id
+        JOIN device_types dt ON d.device_type_id = dt.id
+        WHERE md.module_id = ? AND d.device_type_id = ?
+    )";
+    for (auto &&action : actions){
+        std::cout << "DONE{i}" << std::endl;
+        std::vector<json> device_types = getListOfDeviceTypes(action["id"]);
+        std::cout << "DONE{i+1}" << std::endl;
+        json action_dev_info;
+        action_dev_info["action"] = action;
+        json cur_device;
+        for (auto &&device_type : device_types){
+            long long device_type_id = device_type["id"];
+            QueryResult response = executeQuery(sql, {module_id, device_type_id});
+            cur_device["device_id"] = response.get<long long>(0, "id");
+            cur_device["mqtt_topic"] = response.get<std::string>(0, "mqtt_topic");
+            cur_device["alias"] = response.get<std::string>(0, "alias");
+            cur_device["device_type_id"] = device_type_id;
+            cur_device["device_type_name"] = device_type["name"];
+            cur_device["device_type_role"] = device_type["role"];
+            action_dev_info["device"] = cur_device;
+            actions_devices.push_back(action_dev_info);
+        }
+    }
+    return actions_devices;
 }
 
 long long DataBase::getModuleIDFromRecordID(long long record_id)
@@ -1391,16 +1452,3 @@ std::pair<bool, long long> DataBase::checkUserAuthentication(const std::string &
     return {true, response.get<long long>(0, "id")};
 }
 
-std::string DataBase::getMQTTTopic(unsigned int id){
-    std::string sql = "SELECT mqtt_topic FROM devices WHERE id = ?";
-    auto result = executeQuery(sql, {id});
-    return result.get<std::string>(0, 0);
-}
-
-// int DataBase::getIDFromDeviceName(const std::string &device_name){
-//     std::string sql = R"(
-//         SELECT id FROM devices WHERE name = ?
-//     )";
-//     auto result = executeQuery(sql, {device_name});
-//     return result.get<int>(0,0);
-// }
