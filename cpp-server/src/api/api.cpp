@@ -53,12 +53,13 @@ crow::response API::addModule(long long server_id, long long module_type_id, con
     res.add_header("Content-Type", "application/json; charset=utf-8");
     json resp;
     try{
-        db.addModule(server_id, module_type_id, alias);
+        resp["module_id"] = db.addModule(server_id, module_type_id, alias);
         resp["status"] = true;
         resp["message"] = "Добавление модуля прошло успешно!";
     }
     catch(DataBaseException &e){
         std::cerr << "Error: " << e.what() << std::endl;
+        resp["module_id"] = -1;
         resp["status"] = false;
         resp["message"] = "Добавление модуля прошло с ошибкой";
     }            
@@ -401,14 +402,14 @@ void API::setupRoutes()
         return this->getModulesTypes(user_id);
     });
 
-    CROW_ROUTE(app, "/api/users/<int>/servers/<int>/modules/<int>/necessary_devices")([this]
-    (const crow::request& req, int user_id, int server_id, int module_id){
-        return this->getModuleNecessaryDevices(module_id);
+    CROW_ROUTE(app, "/api/users/<int>/servers/<int>/modules/types/<int>/necessary_devices")([this]
+    (const crow::request& req, int user_id, int server_id, int module_type_id){
+        return this->getModuleNecessaryDevices(module_type_id);
     });
 
     CROW_ROUTE(app, "/api/users/<int>/servers/<int>/modules/<int>/capabilities")([this]
     (const crow::request& req, int user_id, int server_id, int module_id){
-        return this->getModuleCapabilities(module_id);        
+        return this->getModuleCapabilities(module_id);   
     });
 
     CROW_ROUTE(app, "/api/users/<int>/servers/<int>/modules/<int>/add_devices").methods("POST"_method)

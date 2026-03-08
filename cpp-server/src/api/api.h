@@ -29,12 +29,7 @@ private:
     crow::response getDevices();
     crow::response getActuatorsDevices();
     
-    //////////////////////////////////////////////////////////
     crow::response getModuleCapabilities(long long module_id);
-    ////////////////РАЗБИТЬ НА СЛЕДУЮЩИЕ МЕТОДЫ///////////////
-    crow::response getModuleDevices(long long module_id);
-    crow::response getDeviceCapabilities(long long device_id);
-    //////////////////////////////////////////////////////////
 
     crow::response getModuleNecessaryDevices(long long module_type_id);
 
