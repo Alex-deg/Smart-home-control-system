@@ -289,6 +289,7 @@ def callback_message(callback):
             response = requests.post(url, json=module_data)
             data = response.json()
             cur_module_id = data['module_id']
+            print(cur_module_id)
             bot.send_message(callback.message.chat.id, data['message'])
             url = BASE_API_URL + f'/api/users/{temp_data[callback.message.chat.id]['user_id']}/' + \
                                  f'servers/{temp_data[callback.message.chat.id]['current_server_id']}/' + \

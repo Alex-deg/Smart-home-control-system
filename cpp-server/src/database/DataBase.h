@@ -116,8 +116,6 @@ public:
     void deleteCapabilitiesTable();
     void deleteCapabilitiesAndActionsTable();
     void deleteActionsTable();
-
-    void deleteModulesCapabilities();
     ///////////////////////////////////////////////////////////////////////////////////
 
 
@@ -130,9 +128,22 @@ public:
 
 
 
-    //////////////////////////////////ОЧИСТКА ТАБЛИЦ///////////////////////////////////
-    void clearDeviceTypesTable();
-    void clearModuleFillingTable();
+    //////////////////////////////////ОЧИСТКА ТАБЛИЦ///////////////////////////////////;
+    void clearUsersTable();                
+    void clearUsersAndServersTable();      
+    void clearServersTable();              
+    void clearServersAndModulesTable();    
+    void clearModuleTypesTable();          
+    void clearModulesTable();              
+    void clearModulesAndDevicesTable(); 
+    void clearModulesFillingTable(); 
+    void clearDeviceTypesTable();          
+    void clearDevicesTable();
+    void clearActionsAndDeviceTypes();
+    void clearModuleTypesAndCapabilities();
+    void clearCapabilitiesTable();
+    void clearCapabilitiesAndActionsTable();
+    void clearActionsTable();
     ///////////////////////////////////////////////////////////////////////////////////
 
 
@@ -153,7 +164,7 @@ public:
     long long addModule(long long server_id, long long module_type_id, 
                    const std::string& alias);
     void addDevice(long long module_id, int device_type_id, 
-                   const std::string &mqtt_topic, const std::string& alias); 
+                   const std::string& mqtt_topic, const std::string& alias); 
     void addCapability(long long module_type_id, const std::string& name);
     void addModuleType(const std::string& name, const std::string& description,
                        long long creatorID);

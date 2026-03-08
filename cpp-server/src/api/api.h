@@ -46,7 +46,8 @@ private:
     crow::response singleAction(const std::string& mqtt_topic , const std::string &action);
     
     // crow::response generateMQTTTopic(long long record_id);
-    std::string generateMQTTTopic();
+    std::string generateMQTTTopic(long long user_id, long long server_id, 
+                                  long long module_id);
     void setupRoutes();
 
 public:

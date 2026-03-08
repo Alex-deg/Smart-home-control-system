@@ -301,9 +301,10 @@ std::string generateID(size_t length = 16) {
     return id;
 }
 
-std::string API::generateMQTTTopic()
-{
-    return "mqtt_topic";
+std::string API::generateMQTTTopic(long long user_id, long long server_id, 
+                                   long long module_id){
+    return "user/" + std::to_string(user_id) + "/server/" + std::to_string(server_id) + 
+           "/module/" + std::to_string(module_id);
 }
 
 void API::setupRoutes()
@@ -404,7 +405,7 @@ void API::setupRoutes()
     });
 
     CROW_ROUTE(app, "/api/users/<int>/servers/<int>/modules/<int>/add_devices").methods("POST"_method)
-    ([this](const crow::request& req, int user_id, int server_id, int method_id){
+    ([this](const crow::request& req, int user_id, int server_id, int module_id){
         
         auto json = crow::json::load(req.body);
 
@@ -415,7 +416,7 @@ void API::setupRoutes()
         long long device_type_id = json["device_type_id"].i();
         std::string alias = json["alias"].s();
 
-        return this->addDevice(server_id, device_type_id, generateMQTTTopic(), alias);
+        return this->addDevice(module_id, device_type_id, generateMQTTTopic(user_id, server_id, module_id), alias);
     });
 
     CROW_ROUTE(app, "/api/users/<int>/servers/<int>/modules/add").methods("POST"_method)
