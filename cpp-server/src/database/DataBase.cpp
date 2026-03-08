@@ -399,7 +399,7 @@ void DataBase::createDevicesTable(){
         CREATE TABLE devices (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             device_type_id INTEGER NOT NULL,
-            mqtt_topic TEXT UNIQUE NOT NULL, 
+            mqtt_topic TEXT NOT NULL, 
             alias TEXT NOT NULL,
             FOREIGN KEY (device_type_id) REFERENCES device_types(id)
         );   
@@ -656,12 +656,6 @@ void DataBase::deleteActionsTable(){
     )");
 }
 
-void DataBase::deleteModulesCapabilities(){
-    executeRequest(R"(
-        DROP TABLE modules_capabilities;    
-    )");
-}
-
 void DataBase::deleteUsersAndServersTable(){
 
     /**
@@ -778,7 +772,7 @@ void DataBase::deleteModuleFromTables(long long module_id){
 
     // Удаление всех привязанных устройств
     QueryResult response = executeQuery(sql, {module_id});
-    int device_id;
+    long long device_id;
     for(int i = 0; i < response.size(); i++){
         device_id = response.get<long long>(i, "device_id");
         deleteDeviceFromTables(device_id);
@@ -822,8 +816,58 @@ void DataBase::clearDeviceTypesTable(){
     executeRequest(sql);
 }
 
-void DataBase::clearModuleFillingTable(){
+void DataBase::clearDevicesTable(){
+
+    /**
+     * @brief Очистка таблицы устройств с сохранением структуры столбцов
+     */
+
+    std::string sql = R"(
+        DELETE FROM devices;
+    )";
+    executeRequest(sql);
+}
+
+void DataBase::clearServersAndModulesTable(){
     
+    /**
+     * @brief Очистка сводной таблицы серверов и модулей с сохранением структуры столбцов
+     */
+
+    std::string sql = R"(
+        DELETE FROM servers_modules;
+    )";
+    executeRequest(sql);
+}
+
+void DataBase::clearModulesTable()
+{
+
+    /**
+     * @brief Очистка таблицы модулей с сохранением структуры столбцов
+     */
+
+    std::string sql = R"(
+        DELETE FROM modules;
+    )";
+    executeRequest(sql);
+}
+
+void DataBase::clearModulesAndDevicesTable(){
+
+    /**
+     * @brief Очистка сводной таблицы модулей и устройств с сохранением структуры столбцов
+     */
+
+    std::string sql = R"(
+        DELETE FROM modules_devices;
+    )";
+    executeRequest(sql);
+}
+
+void DataBase::clearModulesFillingTable()
+{
+
     /**
      * @brief Очистка таблицы наполнения модулей с сохранением структуры столбцов
      */
@@ -833,8 +877,6 @@ void DataBase::clearModuleFillingTable(){
     )";
     executeRequest(sql);
 }
-
-
 
 void DataBase::updateServerName(long long server_id, const std::string &new_server_name){
    
@@ -1392,7 +1434,9 @@ std::vector<json> DataBase::getListOfDevicesForActions(long long module_id, long
         json cur_device;
         for (auto &&device_type : device_types){
             long long device_type_id = device_type["id"];
+            std::cout << "device_type_id = " << device_type_id << std::endl;
             QueryResult response = executeQuery(sql, {module_id, device_type_id});
+            std::cout << "response.size() = " << response.size() << std::endl;
             cur_device["device_id"] = response.get<long long>(0, "id");
             cur_device["mqtt_topic"] = response.get<std::string>(0, "mqtt_topic");
             cur_device["alias"] = response.get<std::string>(0, "alias");

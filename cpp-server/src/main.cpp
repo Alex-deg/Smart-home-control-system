@@ -11,8 +11,6 @@ int main(){
     DataBase db;
     db.open("../Data/smart_home.db");
 
-    
-
     MQTTClient mqtt(db);  // db передается по ссылке
 
     // 3. Настройка callback'ов (необязательно)
