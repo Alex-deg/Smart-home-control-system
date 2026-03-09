@@ -228,9 +228,7 @@ crow::response API::capabilityHandler(long long module_id, long long capability_
     res.add_header("Content-Type", "application/json; charset=utf-8");
     json resp;
 
-    std::cout << "DONE1" << std::endl;
     std::vector<json> actions_devices = db.getListOfDevicesForActions(module_id, capability_id);
-    std::cout << "DONE" << std::endl;
     for (auto &&action_device : actions_devices){
         actionHandler(action_device["action"], action_device["device"]);
     }
@@ -247,6 +245,10 @@ crow::response API::actionHandler(json action_info, json device_info)
         res = singleAction(device_info["mqtt_topic"], action_info["name"]);
     }
 
+    if (action_info["name"] == "turn_off"){
+        res = singleAction(device_info["mqtt_topic"], action_info["name"]);
+    }
+
     return res;
 }
 
@@ -257,12 +259,9 @@ crow::response API::singleAction(const std::string& mqtt_topic , const std::stri
     json resp;
     
     try {
-
-        json mqtt_command;
-        mqtt_command["action"] = action;
                 
         if (mqtt.isConnected()) {
-            mqtt.publish(mqtt_topic, mqtt_command.dump(), 1, false);
+            mqtt.publish(mqtt_topic, action, 1, false);
             resp["status"] = true;
             resp["message"] = "Команда '" + action + "' отправлена";
         } else {
