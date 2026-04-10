@@ -192,44 +192,6 @@ void DataBase::rollback(){
 
 
 
-void DataBase::createUsersTable(){
-    
-    /**
-     * @brief Создание таблицы для хранения пользователей
-     * @details username - имя пользователя
-     *          password - пароль пользователя
-     *          telegram_chat_id - id чата пользователя в telegram
-     *          status - статус пользователя (authorized/non_authorized : true/false)
-    */  
-       
-    executeRequest(R"(
-        CREATE TABLE users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL,
-            password TEXT NOT NULL, 
-            telegram_chat_id BIGINT UNIQUE
-        );    
-    )");
-}
-
-void DataBase::createUsersAndServersTable(){
-   
-    /**
-     * @brief Создание сводной таблицы для описания отношения пользователей и серверов
-     * @details user_id - id пользователя
-     *          server_id - id сервера, которым владеет пользователь с данным user_id
-     */
-
-    executeRequest(R"(
-        CREATE TABLE users_servers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            server_id INTEGER NOT NULL,
-            FOREIGN KEY (user_id) REFERENCES users(id),
-            FOREIGN KEY (server_id) REFERENCES servers(id)
-        ); 
-    )");
-}
 
 void DataBase::createServersTable(){
     
@@ -313,117 +275,8 @@ void DataBase::createModulesTable(){
     )");
 }
 
-void DataBase::createModulesAndDevicesTable(){
-    
-    /**
-     * @brief Создание сводной таблицы для хранения отношения модулей и устройств
-     * @details module_id - id модуля
-     *          device_id - id устройства, которое входит в модуль с данным module_id
-     */
 
-    executeRequest(R"(
-        CREATE TABLE modules_devices (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            module_id INTEGER NOT NULL,
-            device_id INTEGER NOT NULL,
-            FOREIGN KEY (device_id) REFERENCES devices(id),
-            FOREIGN KEY (module_id) REFERENCES modules(id)
-        );
-    )");
-}
 
-void DataBase::createModulesFillingTable(){
-    
-    /**
-     * @brief Создание таблицы для хранения "начинки" модуля
-     * @details В данной таблице содержится информация о том, какие типы устройств
-     *          должны быть в модуле для его корреткного функционирования
-     *          module_type_id - id типа модуля
-     *          device_type_id - id типа устройства, которое должно входить в состав
-     *          модуля с данным module_type_id
-     *          count - количество устройств типа device_type_id входящих в тип модуля
-     *          module_type_id
-     */
-
-    executeRequest(R"(
-        CREATE TABLE modules_filling (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            module_type_id INTEGER NOT NULL,
-            device_type_id INTEGER NOT NULL,
-            count INTEGER NOT NULL, 
-            FOREIGN KEY (device_type_id) REFERENCES device_types(id),
-            FOREIGN KEY (module_type_id) REFERENCES module_types(id)
-        );
-    )");
-}
-
-void DataBase::createDeviceTypesTable()
-{
-
-    /**
-     * @brief Создание таблицы для хранения типов устройств
-     * @details Таблица может заполняться только разработчиком, так как она содержит
-     *          абстрактные типы устройств, с которыми могут взаимодействовать 
-     *          определенные в таблице module_types типы модулей
-     *          
-     *          name - имя типа устройства
-     *          role - роль устройства (actuator - исполняющее устройство (выполняет инструкции),
-     *                                  sensor - датчик (собирает информацию),
-     *                                  aux - вспомогательные устройства (например МК, который
-     *                                  и не исполняет инструкции, и не собирает данные, а 
-     *                                  является неким мостом между actuator и сервером))
-     *          description - описание типа устройства
-     */
-
-    executeRequest(R"(
-        CREATE TABLE device_types (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE NOT NULL,   
-            role TEXT NOT NULL, 
-            description TEXT            
-        ); 
-    )");
-}
-
-void DataBase::createDevicesTable(){
-    
-    /**
-     * @brief Создание таблицы для хранения устройств
-     * @details device_type_id - id типа устройства
-     *          mqtt_topic - mqtt топик для связи с сервером
-     *          alias - псевдоним, чтобы пользователь мог определять устройства
-     *          одинакового типа в рамках одного модуля
-     */
-
-    executeRequest(R"(
-        CREATE TABLE devices (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            device_type_id INTEGER NOT NULL,
-            mqtt_topic TEXT NOT NULL, 
-            alias TEXT NOT NULL,
-            FOREIGN KEY (device_type_id) REFERENCES device_types(id)
-        );   
-    )");
-}
-
-void DataBase::createActionsAndDeviceTypesTable(){
-
-    /**
-     * @brief Создание сводной таблицы для хранения отношения действий и типов устройств
-     * @details action_id - id действия
-     *          device_type_id - id типа устройства, которое выполняет действие с данным action_id
-     */
-
-    executeRequest(R"(
-        CREATE TABLE actions_device_types (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            action_id INTEGER NOT NULL,
-            device_type_id INTEGER NOT NULL, 
-            FOREIGN KEY (action_id) REFERENCES actions(id),
-            FOREIGN KEY (device_type_id) REFERENCES device_types(id)
-        );   
-    )");
-}
 
 void DataBase::createModuleTypesAndCapabilitiesTable(){
     /**
@@ -449,99 +302,6 @@ void DataBase::createCapabilitiesTable(){
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL
         );   
-    )");
-}
-
-void DataBase::createActionsTable(){
-    executeRequest(R"(
-        CREATE TABLE actions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL
-        );   
-    )");
-}
-
-void DataBase::createCapabilitiesAndActionsTable(){
-    executeRequest(R"(
-        CREATE TABLE capabilities_actions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            capability_id INTEGER NOT NULL,
-            action_id INTEGER NOT NULL,
-            FOREIGN KEY (capability_id) REFERENCES capabilities(id),
-            FOREIGN KEY (action_id) REFERENCES actions(id)
-        );   
-    )");
-}
-
-void DataBase::createTriggersTable(){
-   
-    /**
-     * @brief Создание таблицы для хранения триггеров сценариев
-     * @details name - название триггера
-     *          description - описание триггера
-     */
-
-    // Добавить условие по которому определяется триггер ли наступившее событие или нет
-    executeRequest(R"(
-        CREATE TABLE triggers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE NOT NULL, 
-            description TEXT
-        ); 
-    )");
-}
-
-void DataBase::createScenariosTable(){
-    
-    /**
-     * @brief Создание таблицы для хранения сценариев
-     * @details trigger_id - id триггера при наступлении которого запускается данный сценарий
-     *          device_id - id устройства которое участвует в выполнении сценария
-     */
-
-    // Добавить действие, которое будет выполнять устройство device_id
-    executeRequest(R"(
-        CREATE TABLE scenarios (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            trigger_id INTEGER NOT NULL,
-            device_id INTEGER NOT NULL,
-            FOREIGN KEY (trigger_id) REFERENCES triggers(id),
-            FOREIGN KEY (device_id) REFERENCES devices(id)
-        ); 
-    )");
-}
-
-void DataBase::createMQTTMessagesTable(){
-    
-    /**
-     * @brief Создание таблицы с логом mqtt сообщений
-     * @details topic - mqtt топик {от}куда отправилось сообщение
-     *          payload - само сообщение
-     *          direction - направление сообщения (от сервера, к серверу)
-     *          created_at - время создания записи в таблице
-     */
-
-    executeRequest(R"(
-        CREATE TABLE mqtt_messages (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            topic TEXT NOT NULL,
-            payload TEXT NOT NULL,
-            direction TEXT NOT NULL,
-            created_at TEXT
-        ); 
-    )");
-}
-
-
-
-void DataBase::deleteUsersTable(){
-
-    /**
-     * @brief Удаление таблицы с пользователями
-     */
-
-    executeRequest(R"(
-        DROP TABLE users;    
     )");
 }
 
@@ -578,40 +338,6 @@ void DataBase::deleteModulesTable(){
     )");
 }
 
-void DataBase::deleteDeviceTypesTable(){
-    
-    /**
-     * @brief Удаление таблицы с типами устройств
-     */
-
-    std::string sql = R"(
-        DROP TABLE device_types;
-    )";
-    executeRequest(sql);
-}
-
-void DataBase::deleteDevicesTable(){
-    
-    /**
-     * @brief Удаление таблицы с устройствами
-     */
-
-    executeRequest(R"(
-        DROP TABLE devices;    
-    )");
-}
-
-void DataBase::deleteActionsAndDeviceTypes(){
-    
-    /**
-     * @brief Удаление таблицы с действиями и привязанными к ним типами устройств
-     */
-
-    executeRequest(R"(
-        DROP TABLE actions_device_types;    
-    )");
-}
-
 void DataBase::deleteModuleTypesAndCapabilities(){
 
     /**
@@ -634,39 +360,6 @@ void DataBase::deleteCapabilitiesTable(){
     )");
 }
 
-void DataBase::deleteCapabilitiesAndActionsTable(){
-
-    /**
-     * @brief Удаление таблицы с возможностями и привязанными к ним действиями
-     */
-
-    executeRequest(R"(
-        DROP TABLE capabilities_actions;    
-    )");
-}
-
-void DataBase::deleteActionsTable(){
-
-    /**
-     * @brief Удаление таблицы с действиями
-     */
-
-    executeRequest(R"(
-        DROP TABLE actions;    
-    )");
-}
-
-void DataBase::deleteUsersAndServersTable(){
-
-    /**
-     * @brief Удаление сводной таблицы с пользователями и привязанными к ним серверами
-     */
-
-    executeRequest(R"(
-        DROP TABLE users_servers;    
-    )");
-}
-
 void DataBase::deleteServersAndModulesTable(){
 
     /**
@@ -677,29 +370,6 @@ void DataBase::deleteServersAndModulesTable(){
         DROP TABLE servers_modules;    
     )");
 }
-
-void DataBase::deleteModulesAndDevicesTable(){
-
-    /**
-     * @brief Удаление сводной таблицы с модулями и привязанными к ним устройствами
-     */
-
-    executeRequest(R"(
-        DROP TABLE modules_devices;    
-    )");
-}
-
-void DataBase::deleteModulesFillingTable(){
-
-    /**
-     * @brief Удаление сводной таблицы с типами модулей и типами устройств
-     */
-
-    executeRequest(R"(
-        DROP TABLE modules_filling;    
-    )");
-}
-
 
 
 void DataBase::deleteServerFromTables(long long server_id){
@@ -770,63 +440,14 @@ void DataBase::deleteModuleFromTables(long long module_id){
         WHERE module_id = ?
     )";
 
-    // Удаление всех привязанных устройств
-    QueryResult response = executeQuery(sql, {module_id});
-    long long device_id;
-    for(int i = 0; i < response.size(); i++){
-        device_id = response.get<long long>(i, "device_id");
-        deleteDeviceFromTables(device_id);
-    }   
-
-}
-
-void DataBase::deleteDeviceFromTables(long long device_id){
-
-    /**
-     * @brief Удаление устройств из БД
-     * @param device_id id устройства, которое необходимо удалить
-     */
-
-    // Удаление из сводной таблицы модули-устройства
-    std::string sql = R"(
-        DELETE FROM modules_devices
-        WHERE device_id = ?
-    )";
-    executeRequest(sql, {device_id});
-    
-    // Удаление из таблцы устройств
-    sql = R"(
-        DELETE FROM devices
-        WHERE id = ?
-    )";
-    executeRequest(sql, {device_id});
 }
 
 
 
-void DataBase::clearDeviceTypesTable(){
-    
-    /**
-     * @brief Очистка таблицы типов устройств с сохранением структуры столбцов
-     */
 
-    std::string sql = R"(
-        DELETE FROM device_types;
-    )";
-    executeRequest(sql);
-}
 
-void DataBase::clearDevicesTable(){
 
-    /**
-     * @brief Очистка таблицы устройств с сохранением структуры столбцов
-     */
 
-    std::string sql = R"(
-        DELETE FROM devices;
-    )";
-    executeRequest(sql);
-}
 
 void DataBase::clearServersAndModulesTable(){
     
@@ -853,30 +474,7 @@ void DataBase::clearModulesTable()
     executeRequest(sql);
 }
 
-void DataBase::clearModulesAndDevicesTable(){
 
-    /**
-     * @brief Очистка сводной таблицы модулей и устройств с сохранением структуры столбцов
-     */
-
-    std::string sql = R"(
-        DELETE FROM modules_devices;
-    )";
-    executeRequest(sql);
-}
-
-void DataBase::clearModulesFillingTable()
-{
-
-    /**
-     * @brief Очистка таблицы наполнения модулей с сохранением структуры столбцов
-     */
-
-    std::string sql = R"(
-        DELETE FROM modules_filling
-    )";
-    executeRequest(sql);
-}
 
 void DataBase::updateServerName(long long server_id, const std::string &new_server_name){
    
@@ -894,22 +492,6 @@ void DataBase::updateServerName(long long server_id, const std::string &new_serv
     executeRequest(sql, {new_server_name, server_id});
 }
 
-void DataBase::updateDeviceType(int device_id, int device_type_id)
-{
-
-    /**
-     * @brief Обновление типа устройства
-     * @param device_id id устройства, у которого собираемся менять тип устройства
-     * @param device_type_id новый тип устройства
-     */
-
-    std::string sql = R"(
-        UPDATE devices 
-        SET device_type_id = ?
-        WHERE id = ?
-    )";
-    executeRequest(sql, {device_type_id, device_id});
-}
 
 // void DataBase::updateDeviceStatus(bool new_status, const std::string &topic_pattern){
 //     std::string sql = R"(
@@ -922,27 +504,6 @@ void DataBase::updateDeviceType(int device_id, int device_type_id)
 
 
 
-void DataBase::addUser(const std::string& user_name, const std::string& password,
-                       long int tg_chat_id){
-    
-    /**
-     * @brief Добавление пользователя 
-     * @param user_name Имя пользователя
-     * @param password Пароль пользователя
-     * @param tg_chat_id id чата в telegram
-    */
-
-    // Добавление в таблицу с пользователями
-    std::string sql = R"(
-        INSERT INTO users (username, password, telegram_chat_id)
-        VALUES (?, ?, ?)
-    )";
-    executeRequest(sql, {
-        user_name,       
-        password,        
-        tg_chat_id
-    });
-}
 
 void DataBase::addServer(long long user_id, const std::string &server_name, 
                          const std::string &server_key){
@@ -1019,42 +580,6 @@ long long DataBase::addModule(long long server_id, long long module_type_id,
     return module_id;
 }
 
-void DataBase::addDevice(long long module_id, int device_type_id, 
-                         const std::string &mqtt_topic, const std::string& alias){
-    
-    /**
-     * @brief Добавление устройства 
-     * @param module_id id модуля, к которому подвязывается добавляемое устройство
-     * @param device_type_id id типа устройства, к которому относится добавляемое устройство
-     * @param mqtt_topic mqtt топик, по которому будет осуществляться взаимодействие с сервером
-     * @param alias псевдоним для случая, когда в одном модуле представлены несколько устройств одного типа
-     */
-
-    // Добавление в таблицу устройств
-    std::string sql = R"(
-        INSERT INTO devices (device_type_id, mqtt_topic, alias)
-        VALUES (?, ?, ?)
-    )";
-    executeRequest(sql, {device_type_id, mqtt_topic, alias});
-
-    // Получение id только что добавленного устройства
-    sql = R"(
-        SELECT 
-            id
-        FROM devices 
-        ORDER BY id DESC 
-        LIMIT 1;
-    )";
-    QueryResult response = executeQuery(sql);
-    long long device_id = response.get<long long>(0, "id");
-
-    // Добавление в сводную таблицу модули-устройства
-    sql = R"(
-        INSERT INTO modules_devices (module_id, device_id)
-        VALUES (?, ?)
-    )";
-    executeRequest(sql, {module_id, device_id});                
-}
 
 void DataBase::addCapability(long long module_type_id, const std::string &name){
 
@@ -1090,27 +615,6 @@ void DataBase::addCapability(long long module_type_id, const std::string &name){
     executeRequest(sql, {module_type_id, capability_id});  
 }
 
-void DataBase::addMQTTMessage(const std::string &topic, const std::string &payload,
-                              bool incoming){
-    
-    /**
-     * @brief Добавление лога mqtt сообщения
-     * @param topic mqtt топик {от}куда отправлялось сообщение
-     * @param payload отправленное сообщение 
-     * @param incoming показывает направление сообщения: входящее или выходящее
-    */
-
-    // Добавление в таблицу mqtt сообщений
-    std::string sql = R"(
-        INSERT INTO mqtt_messages (topic, payload, direction, created_at)
-        VALUES (?, ?, ?, datetime('now'))
-    )";
-    executeRequest(sql, {
-        topic,
-        payload,
-        incoming ? "incoming" : "outgoing"
-    });
-}
 
 
 
@@ -1132,89 +636,6 @@ void DataBase::addModuleType(const std::string &name, const std::string &descrip
     executeRequest(sql, {name, description, creatorID});
 }
 
-void DataBase::fillModules(long long module_type_id, long long device_type_id,
-                           int count){
-    
-    /**
-     * @brief Добавление данных в сводную таблицу типы модулей-типы устройств
-     * @param module_type_id id типа модуля
-     * @param device_type_id id типа устройства, которое необходимо
-     *                       для функционирования типа модуля module_type_id
-    */
-
-    std::string sql = R"(
-        INSERT INTO modules_filling (module_type_id, device_type_id, count)
-        VALUES (?, ?, ?)
-    )";
-    executeRequest(sql, {module_type_id, device_type_id, count});
-}
-
-void DataBase::adminAddDeviceType(const std::string &name, const std::string &role, 
-                                  const std::string &description){
-
-    /**
-     * @brief Добавление типа устройства
-     * @param name имя добавлемого типа устройства
-     * @param role роль устройства (actuator - исполняющее устройство (выполняет инструкции),
-     *                                  sensor - датчик (собирает информацию),
-     *                                  aux - вспомогательные устройства (например МК, который
-     *                                  и не исполняет инструкции, и не собирает данные, а 
-     *                                  является неким мостом между actuator и сервером))
-     * @param description описание типа устройства
-    */
-
-    // Добавление в таблицу с типами устройств
-    std::string sql = R"(
-        INSERT INTO device_types(name, role, description)
-        VALUES (?, ?, ?)
-    )";
-    executeRequest(sql, {name, role, description});
-
-}
-
-void DataBase::adminAddAction(const std::string &name){
-    
-    /**
-     * @brief Добавление действия
-     * @param name имя добавлемого действия
-    */
-
-    std::string sql = R"(
-        INSERT INTO actions(name)
-        VALUES (?)
-    )";
-    executeRequest(sql, {name});
-}
-
-void DataBase::addCapabilitiesActions(long long capability_id, long long action_id){
-
-    /**
-     * @brief Добавление данных в сводную таблицу возможности - действия
-     * @param capability_id id возможности
-     * @param action_id id действия, которое входит в состав данной возможности
-    */
-
-    std::string sql = R"(
-        INSERT INTO capabilities_actions(capability_id, action_id)
-        VALUES (?, ?)
-    )";
-    executeRequest(sql, {capability_id, action_id});
-}
-
-void DataBase::adminAddActionsDeviceTypes(long long action_id, long long device_type_id){
-    
-    /**
-     * @brief Добавление данных в сводную таблицу действия - типы устройств
-     * @param action_id id действия
-     * @param device_type_id id типа устройства, которое выполняет данное действие
-    */
-
-    std::string sql = R"(
-        INSERT INTO actions_device_types(action_id, device_type_id)
-        VALUES (?, ?)
-    )";
-    executeRequest(sql, {action_id, device_type_id});
-}
 
 std::vector<json> DataBase::getListOfServers(long long user_id)
 {
@@ -1280,7 +701,7 @@ std::vector<json> DataBase::getListOfModules(long long server_id)
     return list_of_modules;
 }
 
-std::vector<json> DataBase::getListOfAllModuleTypes()
+std::vector<json> DataBase::getListOfModuleTypes()
 {
     std::vector<json> list_of_modules;
     std::string sql = R"(
@@ -1335,164 +756,3 @@ std::vector<json> DataBase::getCapabilities(long long module_id)
     }
     return capabilities;
 }
-
-std::vector<json> DataBase::getListOfNecessaryDevicesForModule(long long module_type_id)
-{
-    std::vector<json> necessary_devices;
-    
-    std::string sql = R"(
-        SELECT 
-            device_type_id,
-            count
-        FROM modules_filling
-        WHERE module_type_id = ?
-    )";
-    QueryResult response = executeQuery(sql, {module_type_id});
-
-    json cur_dev;
-
-    for (int i = 0; i < response.size(); i++){
-        long long device_type_id = response.get<long long>(i, "device_type_id");
-        long long count = response.get<long long>(i, "count");
-        cur_dev["device_type_id"] = device_type_id;
-        cur_dev["count"] = count;
-        necessary_devices.push_back(cur_dev);
-    }
-    return necessary_devices;
-}
-
-std::vector<json> DataBase::getListOfActions(long long capability_id){
-
-    std::vector<json> actions;
-
-    std::string sql = R"(
-        SELECT 
-            a.id,
-            a.name    
-        FROM capabilities_actions ca
-        JOIN actions a ON ca.action_id = a.id
-        WHERE capability_id = ?;
-    )";
-
-    QueryResult response = executeQuery(sql, {capability_id});
-    json cur_action;
-    for (int i = 0; i < response.size(); i++){
-        cur_action["id"] = response.get<long long>(i, "id");
-        cur_action["name"] = response.get<std::string>(i, "name");
-        actions.push_back(cur_action);
-    }
-    return actions;
-}
-
-std::vector<json> DataBase::getListOfDeviceTypes(long long action_id)
-{
-    std::vector<json> device_types;
-
-    std::string sql = R"(
-        SELECT
-            dt.id,
-            dt.name,
-            dt.role 
-        FROM actions_device_types adt
-        JOIN device_types dt ON adt.device_type_id = dt.id
-        WHERE action_id = ?
-    )";
-
-    QueryResult response = executeQuery(sql, {action_id});
-    json cur_dev_type;
-    for (int i = 0; i < response.size(); i++){
-        cur_dev_type["id"] = response.get<long long>(i, "id");
-        cur_dev_type["name"] = response.get<std::string>(i, "name");
-        cur_dev_type["role"] = response.get<std::string>(i, "role");
-        device_types.push_back(cur_dev_type);
-    }
-    return device_types;
-}
-
-std::vector<json> DataBase::getListOfDevicesForActions(long long module_id, long long capability_id)
-{
-    std::vector<json> actions_devices;
-    std::cout << "DONE2" << std::endl;
-    std::vector<json> actions = getListOfActions(capability_id);
-    std::cout << "DONE3" << std::endl;
-    std::string sql = R"(
-        SELECT
-            d.id,
-            d.mqtt_topic,
-            d.alias
-        FROM modules_devices md
-        JOIN devices d ON md.device_id = d.id
-        JOIN device_types dt ON d.device_type_id = dt.id
-        WHERE md.module_id = ? AND d.device_type_id = ?
-    )";
-    for (auto &&action : actions){
-        std::cout << "DONE{i}" << std::endl;
-        std::vector<json> device_types = getListOfDeviceTypes(action["id"]);
-        std::cout << "DONE{i+1}" << std::endl;
-        json action_dev_info;
-        action_dev_info["action"] = action;
-        json cur_device;
-        for (auto &&device_type : device_types){
-            long long device_type_id = device_type["id"];
-            std::cout << "device_type_id = " << device_type_id << std::endl;
-            QueryResult response = executeQuery(sql, {module_id, device_type_id});
-            std::cout << "response.size() = " << response.size() << std::endl;
-            cur_device["device_id"] = response.get<long long>(0, "id");
-            cur_device["mqtt_topic"] = response.get<std::string>(0, "mqtt_topic");
-            cur_device["alias"] = response.get<std::string>(0, "alias");
-            cur_device["device_type_id"] = device_type_id;
-            cur_device["device_type_name"] = device_type["name"];
-            cur_device["device_type_role"] = device_type["role"];
-            action_dev_info["device"] = cur_device;
-            actions_devices.push_back(action_dev_info);
-        }
-    }
-    return actions_devices;
-}
-
-long long DataBase::getModuleIDFromRecordID(long long record_id)
-{
-    std::string sql = R"(
-        SELECT 
-            module_id
-        FROM servers_modules
-        WHERE id = ?
-    )";
-    std::cout << "record_id = " << record_id << std::endl;
-    QueryResult response = executeQuery(sql, {record_id});
-    return response.get<long long>(0, "module_id");
-}
-
-long long DataBase::getUserIDbyTGChatID(long long tg_chat_id)
-{
-    std::string sql = R"(
-        SELECT 
-            users.id 
-        FROM users WHERE telegram_chat_id = ?
-    )";
-
-    QueryResult response = executeQuery(sql, {tg_chat_id});
-
-    return response.get<long long>(0, 0);
-}
-
-std::pair<bool, long long> DataBase::checkUserAuthentication(const std::string &username, const std::string &password)
-{
-    std::string sql = R"(
-        SELECT 
-            id,
-            username,
-            password 
-        FROM users WHERE username = ?
-    )";
-
-    QueryResult response = executeQuery(sql, {username});
-
-    if (response.size() == 0)
-        return {false, -1};
-    if (response.get<std::string>(0, "password") != password)
-        return {false, -1};
-
-    return {true, response.get<long long>(0, "id")};
-}
-
