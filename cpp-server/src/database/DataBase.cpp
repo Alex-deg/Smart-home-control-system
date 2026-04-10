@@ -442,23 +442,38 @@ void DataBase::deleteModuleFromTables(long long module_id){
 
 }
 
+void DataBase::clearServersTable(){
 
+    /**
+     * @brief Очистка таблицы серверов с сохранением структуры столбцов
+     */
 
+    executeRequest(R"(
+        DELETE FROM servers;    
+    )");
+}
 
+void DataBase::clearServersAndModulesTable()
+{
 
-
-
-
-void DataBase::clearServersAndModulesTable(){
-    
     /**
      * @brief Очистка сводной таблицы серверов и модулей с сохранением структуры столбцов
      */
 
-    std::string sql = R"(
+    executeRequest(R"(
         DELETE FROM servers_modules;
-    )";
-    executeRequest(sql);
+    )");
+}
+
+void DataBase::clearModuleTypesTable(){
+
+    /**
+     * @brief Очистка таблицы типов модулей с сохранением структуры столбцов
+     */
+
+    executeRequest(R"(
+        DELETE FROM module_types;    
+    )");
 }
 
 void DataBase::clearModulesTable()
@@ -468,13 +483,33 @@ void DataBase::clearModulesTable()
      * @brief Очистка таблицы модулей с сохранением структуры столбцов
      */
 
-    std::string sql = R"(
+    executeRequest(R"(
         DELETE FROM modules;
-    )";
-    executeRequest(sql);
+    )");
 }
 
+void DataBase::clearModuleTypesAndCapabilities(){
 
+    /**
+     * @brief Очистка сводной таблицы типов модулей и их функционала с сохранением структуры столбцов
+     */
+
+    executeRequest(R"(
+        DELETE FROM module_types_capabilities;
+    )");
+    
+}
+
+void DataBase::clearCapabilitiesTable(){
+
+    /**
+     * @brief Очистка таблицы возможностей с сохранением структуры столбцов
+     */
+
+    executeRequest(R"(
+        DELETE FROM capabilities;
+    )");
+}
 
 void DataBase::updateServerName(long long server_id, const std::string &new_server_name){
    
