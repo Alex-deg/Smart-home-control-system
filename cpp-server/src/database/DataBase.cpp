@@ -198,7 +198,7 @@ void DataBase::createServersTable(){
     /** 
      * @brief Создание таблицы для хранения серверов
      * @details name - имя сервера
-     *          server_key - ключ сервера, по которому пользователь
+     *          server_token - ключ сервера, по которому пользователь
      *                       может подключиться к данному серверу
     */
 
@@ -206,7 +206,8 @@ void DataBase::createServersTable(){
         CREATE TABLE servers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,      
-            server_key TEXT UNIQUE NOT NULL   
+            server_token TEXT UNIQUE NOT NULL,
+            hostID INTEGER NOT NULL
         ); 
     )");
 }
@@ -234,20 +235,17 @@ void DataBase::createModuleTypesTable(){
     
     /**
      * @brief Создание таблицы для хранения типов модулей
-     * @details Таблица может заполняться только разработчиком, так как она содержит
-     *          абстрактные типы модулей, с которыми может взаимодействовать разработанная система
-     *          
-     *          name - имя модуля
-     *          description - описание модуля
-     *          creatorID - id пользователя, который создал данный тип модуля
+     * @details Cодержит абстрактные типы модулей, с которыми может взаимодействовать 
+     *          разработанная система
+     *          name - имя типа модуля
+     *          description - описание типа модуля
      */
 
     executeRequest(R"(
         CREATE TABLE module_types (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
-            description TEXT NOT NULL,
-            creatorID INTEGER NOT NULL
+            description TEXT
         ); 
     )");
 }
@@ -263,6 +261,7 @@ void DataBase::createModulesTable(){
      *          alias, который при выводе списка модулей на сервере будет выводиться
      *          справа от названия модуля в квадратных скобках (Умная розетка [Кухня]
      *                                                          Умная розетка [Спальня])
+     *          mqtt_topic - топик для обработки пользовательских команд
      */
 
     executeRequest(R"(
@@ -270,6 +269,7 @@ void DataBase::createModulesTable(){
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             module_type_id INTEGER NOT NULL,
             alias TEXT NOT NULL,
+            mqtt_topic TEXT NOT NULL,
             FOREIGN KEY (module_type_id) REFERENCES module_types(id)
         ); 
     )");
@@ -378,16 +378,9 @@ void DataBase::deleteServerFromTables(long long server_id){
      * @brief Удаление сервера и всех к нему привязанных сущностей (модулей) из БД
      * @param server_id id сервера, который необходимо удалить
      */
-
-    // Удаление из сводной таблицы пользователь-сервер
-    std::string sql = R"(
-        DELETE FROM users_servers
-        WHERE server_id = ?
-    )";
-    executeRequest(sql, {server_id});
     
-    // Удаление из таблицы модулей
-    sql = R"(
+    // Удаление из таблицы серверов
+    std::string sql = R"(
         DELETE FROM servers
         WHERE id = ?
     )";
@@ -442,23 +435,38 @@ void DataBase::deleteModuleFromTables(long long module_id){
 
 }
 
+void DataBase::clearServersTable(){
 
+    /**
+     * @brief Очистка таблицы серверов с сохранением структуры столбцов
+     */
 
+    executeRequest(R"(
+        DELETE FROM servers;    
+    )");
+}
 
+void DataBase::clearServersAndModulesTable()
+{
 
-
-
-
-void DataBase::clearServersAndModulesTable(){
-    
     /**
      * @brief Очистка сводной таблицы серверов и модулей с сохранением структуры столбцов
      */
 
-    std::string sql = R"(
+    executeRequest(R"(
         DELETE FROM servers_modules;
-    )";
-    executeRequest(sql);
+    )");
+}
+
+void DataBase::clearModuleTypesTable(){
+
+    /**
+     * @brief Очистка таблицы типов модулей с сохранением структуры столбцов
+     */
+
+    executeRequest(R"(
+        DELETE FROM module_types;    
+    )");
 }
 
 void DataBase::clearModulesTable()
@@ -468,13 +476,33 @@ void DataBase::clearModulesTable()
      * @brief Очистка таблицы модулей с сохранением структуры столбцов
      */
 
-    std::string sql = R"(
+    executeRequest(R"(
         DELETE FROM modules;
-    )";
-    executeRequest(sql);
+    )");
 }
 
+void DataBase::clearModuleTypesAndCapabilities(){
 
+    /**
+     * @brief Очистка сводной таблицы типов модулей и их функционала с сохранением структуры столбцов
+     */
+
+    executeRequest(R"(
+        DELETE FROM module_types_capabilities;
+    )");
+    
+}
+
+void DataBase::clearCapabilitiesTable(){
+
+    /**
+     * @brief Очистка таблицы возможностей с сохранением структуры столбцов
+     */
+
+    executeRequest(R"(
+        DELETE FROM capabilities;
+    )");
+}
 
 void DataBase::updateServerName(long long server_id, const std::string &new_server_name){
    
@@ -506,22 +534,22 @@ void DataBase::updateServerName(long long server_id, const std::string &new_serv
 
 
 void DataBase::addServer(long long user_id, const std::string &server_name, 
-                         const std::string &server_key){
+                         const std::string &server_token){
     
     /**
      * @brief Добавление сервера
      * @param user_id id пользователя, который добавляет сервер
      * @param server_name Имя создаваемого сервера
-     * @param server_key Ключ сервера, по которому пользователи
+     * @param server_token Ключ сервера, по которому пользователи
      *                   могут подключаться к этому серверу
      */
 
     // Добавление в таблицу с серверами
     std::string sql = R"(
-        INSERT INTO servers (name, server_key)
+        INSERT INTO servers (name, server_token)
         VALUES (?, ?)
     )";
-    executeRequest(sql, {server_name, server_key});
+    executeRequest(sql, {server_name, server_token});
 
     // Получение id сервера, который только что добавили
     sql = R"(
@@ -654,7 +682,7 @@ std::vector<json> DataBase::getListOfServers(long long user_id)
         SELECT 
             s.id as server_id,
             s.name as server_name,
-            s.server_key as server_key  
+            s.server_token as server_token  
         FROM users_servers us
         JOIN servers s ON us.server_id = s.id
         WHERE user_id = ?;
@@ -666,7 +694,7 @@ std::vector<json> DataBase::getListOfServers(long long user_id)
     for (size_t i = 0; i < response.rows.size(); i++){
         server["server_id"] = response.get<long long>(i, "server_id");
         server["name"] = response.get<std::string>(i, "server_name");
-        server["server_key"] = response.get<std::string>(i, "server_key");
+        server["server_token"] = response.get<std::string>(i, "server_token");
         list_of_servers.push_back(server);
     }
     return list_of_servers;
