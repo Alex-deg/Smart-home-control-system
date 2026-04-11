@@ -93,17 +93,16 @@ public:
 
 
     ///////////////////////////ЗАПОЛНЕНИЕ ТАБЛИЦ ЗНАЧЕНИЯМИ////////////////////////////
-    long long addModule(long long server_id, long long module_type_id, 
-                   const std::string& alias);
+    long long addModule(long long module_type_id, const std::string& alias, 
+                        const std::string& mqtt_topic);
     void addCapability(long long module_type_id, const std::string& name);
-    void addModuleType(const std::string& name, const std::string& description,
-                       long long creatorID);
+    void addModuleType(const std::string& name, const std::string& description);
     ///////////////////////////////////////////////////////////////////////////////////
 
 
 
     ////////////////////////////ПОЛУЧЕНИЕ ДАННЫХ ИЗ ТАБЛИЦ/////////////////////////////
-    std::vector<json> getListOfModules(long long server_id);
+    std::vector<json> getListOfModules();
     std::vector<json> getListOfModuleTypes();
     std::vector<json> getCapabilities(long long module_id);
     ///////////////////////////////////////////////////////////////////////////////////

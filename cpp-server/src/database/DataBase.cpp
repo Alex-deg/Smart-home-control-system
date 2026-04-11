@@ -240,6 +240,7 @@ void DataBase::createModulesTable(){
 
 
 void DataBase::createModuleTypesAndCapabilitiesTable(){
+    
     /**
      * @brief Создание сводной таблицы для хранения отношения действий и типов устройств
      * @details module_type_id - id типа модуля
@@ -258,6 +259,12 @@ void DataBase::createModuleTypesAndCapabilitiesTable(){
 }
 
 void DataBase::createCapabilitiesTable(){
+
+    /**
+     * @brief Создание таблицы для хранения функий удаленного доступа к модулю
+     * @details name - имя функции
+     */
+
     executeRequest(R"(
         CREATE TABLE capabilities (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -313,31 +320,16 @@ void DataBase::deleteCapabilitiesTable(){
 void DataBase::deleteModuleFromTables(long long module_id){
 
     /**
-     * @brief Удаление модуля и всех к нему привязанных сущностей (устройств) из БД
+     * @brief Удаление модуля из БД
      * @param module_id id модуля, который необходимо удалить
      */
-
-    // Удаление из сводной таблицы сервер-модуль
-    std::string sql = R"(
-        DELETE FROM servers_modules
-        WHERE module_id = ?
-    )";
-    executeRequest(sql, {module_id});
-    
+   
     // Удаление из таблицы модулей
-    sql = R"(
+    std::string sql = R"(
         DELETE FROM modules
         WHERE id = ?
     )";
     executeRequest(sql, {module_id});
-
-    // Получение id'шников всех привязанных устройств
-    sql = R"(
-        SELECT
-            device_id
-        FROM modules_devices
-        WHERE module_id = ?
-    )";
 
 }
 
@@ -387,24 +379,25 @@ void DataBase::clearCapabilitiesTable(){
     )");
 }
 
-long long DataBase::addModule(long long server_id, long long module_type_id, 
-                         const std::string& alias){
+long long DataBase::addModule(long long module_type_id, const std::string& alias, 
+                              const std::string& mqtt_topic){
 
     /**
      * @brief Добавление модуля 
-     * @param server_id id сервера, к которому подвязывается добавляемый модуль
      * @param module_type_id id типа модуля, к которому относится добавляемый модуль
      * @param alias псевдоним для добавляемого модуля, чтобы различать одинаковые по
      *              типу модули
+     * @param mqtt_topic mqtt топик для обработки удаленных пользовательских команд
      */
 
     // Добавление в таблицу модулей
     std::string sql = R"(
-        INSERT INTO modules(module_type_id, alias)
-        VALUES (?, ?)
+        INSERT INTO modules(module_type_id, alias, mqtt_topic)
+        VALUES (?, ?, ?)
     )";
-    executeRequest(sql, {module_type_id, alias});
+    executeRequest(sql, {module_type_id, alias, mqtt_topic});
 
+    // Получение id только что добавленного модуля
     sql = R"(
         SELECT 
             id
@@ -414,13 +407,6 @@ long long DataBase::addModule(long long server_id, long long module_type_id,
     )";
     QueryResult response = executeQuery(sql);
     long long module_id = response.get<long long>(0, "id");
-
-    // Добавление в сводную таблицу серверы-модули
-    sql = R"(
-        INSERT INTO servers_modules(server_id, module_id)
-        VALUES (?, ?)
-    )";
-    executeRequest(sql, {server_id, module_id});
 
     return module_id;
 }
@@ -460,48 +446,43 @@ void DataBase::addCapability(long long module_type_id, const std::string &name){
     executeRequest(sql, {module_type_id, capability_id});  
 }
 
-
-
-
-void DataBase::addModuleType(const std::string &name, const std::string &description,
-                             long long creatorID){
+void DataBase::addModuleType(const std::string &name, const std::string &description){
 
     /**
      * @brief Добавление типа модуля
      * @param name имя добавлемого типа модуля
      * @param description описание добавляемого типа модуля
-     * @param creatorID id пользователя, который создал данный тип модуля
     */
 
     // Добавление в таблицу с типами модулей
     std::string sql = R"(
-        INSERT INTO module_types(name, description, creatorID)
-        VALUES (?, ?, ?)
+        INSERT INTO module_types(name, description)
+        VALUES (?, ?)
     )";
-    executeRequest(sql, {name, description, creatorID});
+    executeRequest(sql, {name, description});
 }
 
-std::vector<json> DataBase::getListOfModules(long long server_id)
+std::vector<json> DataBase::getListOfModules()
 {
     std::vector<json> list_of_modules;
     std::string sql = R"(
         SELECT 
             m.id as module_id,
             m.alias as module_alias,
+            m.mqtt_topic as module_mqtt_topic,
             mt.name as module_name,
             mt.description as module_description 
-        FROM servers_modules sm
-        JOIN modules m ON sm.module_id = m.id
+        FROM modules m
         JOIN module_types mt ON m.module_type_id = mt.id
-        WHERE server_id = ?;
     )";
 
-    QueryResult response = executeQuery(sql, {server_id});
+    QueryResult response = executeQuery(sql);
     json module_;
     
     for (size_t i = 0; i < response.rows.size(); i++){
         module_["id"] = response.get<long long>(i, "module_id");
         module_["alias"] = response.get<std::string>(i, "module_alias");
+        module_["mqtt_topic"] = response.get<std::string>(i, "module_mqtt_topic");
         module_["name"] = response.get<std::string>(i, "module_name");
         module_["description"] = response.get<std::string>(i, "module_description");
         list_of_modules.push_back(module_);
@@ -511,7 +492,7 @@ std::vector<json> DataBase::getListOfModules(long long server_id)
 
 std::vector<json> DataBase::getListOfModuleTypes()
 {
-    std::vector<json> list_of_modules;
+    std::vector<json> list_of_module_types;
     std::string sql = R"(
         SELECT 
             *
@@ -525,9 +506,9 @@ std::vector<json> DataBase::getListOfModuleTypes()
         module_["id"] = response.get<long long>(i, "id");
         module_["name"] = response.get<std::string>(i, "name");
         module_["description"] = response.get<std::string>(i, "description");
-        list_of_modules.push_back(module_);
+        list_of_module_types.push_back(module_);
     }
-    return list_of_modules;
+    return list_of_module_types;
 }
 
 std::vector<json> DataBase::getCapabilities(long long module_id)
@@ -558,8 +539,8 @@ std::vector<json> DataBase::getCapabilities(long long module_id)
     json cur_capability;
 
     for (int i = 0; i < response.size(); i++){
-        cur_capability["capability_id"] = response.get<long long>(i, "id");
-        cur_capability["capability_name"] = response.get<std::string>(i, "name");
+        cur_capability["id"] = response.get<long long>(i, "id");
+        cur_capability["name"] = response.get<std::string>(i, "name");
         capabilities.push_back(cur_capability);
     }
     return capabilities;
