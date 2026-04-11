@@ -60,19 +60,15 @@ public:
 
 
     /////////////////СОЗДАНИЕ ТАБЛИЦ ОСНОВНЫХ СУЩНОСТЕЙ И ИХ ОТНОШЕНИЙ/////////////////  
-    void createServersTable();
-    void createServersAndModulesTable();
-    void createModulesTable();    
-    void createModuleTypesTable();    
+    void createModulesTable();
+    void createModuleTypesTable();
     void createModuleTypesAndCapabilitiesTable();
-    void createCapabilitiesTable();    
+    void createCapabilitiesTable();
     ///////////////////////////////////////////////////////////////////////////////////
 
 
 
     //////////////////////////////////УДАЛЕНИЕ ТАБЛИЦ//////////////////////////////////
-    void deleteServersTable();
-    void deleteServersAndModulesTable();
     void deleteModuleTypesTable();
     void deleteModulesTable();
     void deleteModuleTypesAndCapabilities();
@@ -82,15 +78,12 @@ public:
 
 
     ////////////////////////////УДАЛЕНИЕ КОНКРЕТНЫХ ЗАПИСЕЙ////////////////////////////
-    void deleteServerFromTables(long long server_id);
     void deleteModuleFromTables(long long module_id);
     ///////////////////////////////////////////////////////////////////////////////////
 
 
 
     //////////////////////////////////ОЧИСТКА ТАБЛИЦ///////////////////////////////////;
-    void clearServersTable();              
-    void clearServersAndModulesTable();    
     void clearModuleTypesTable();          
     void clearModulesTable();              
     void clearModuleTypesAndCapabilities();
@@ -99,15 +92,7 @@ public:
 
 
 
-    //////////////////ИЗМЕНЕНИЕ КОНКРЕТНОГО ПОЛЯ В КОНКРЕТНОЙ ТАБЛИЦЕ//////////////////
-    void updateServerName(long long server_id, const std::string& new_server_name);
-    ///////////////////////////////////////////////////////////////////////////////////
-
-
-
     ///////////////////////////ЗАПОЛНЕНИЕ ТАБЛИЦ ЗНАЧЕНИЯМИ////////////////////////////
-    void addServer(long long user_id, const std::string& server_name, 
-                   const std::string& server_key);
     long long addModule(long long server_id, long long module_type_id, 
                    const std::string& alias);
     void addCapability(long long module_type_id, const std::string& name);
@@ -118,7 +103,6 @@ public:
 
 
     ////////////////////////////ПОЛУЧЕНИЕ ДАННЫХ ИЗ ТАБЛИЦ/////////////////////////////
-    std::vector<json> getListOfServers(long long user_id);
     std::vector<json> getListOfModules(long long server_id);
     std::vector<json> getListOfModuleTypes();
     std::vector<json> getCapabilities(long long module_id);
