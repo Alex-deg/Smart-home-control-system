@@ -192,45 +192,6 @@ void DataBase::rollback(){
 
 
 
-
-void DataBase::createServersTable(){
-    
-    /** 
-     * @brief Создание таблицы для хранения серверов
-     * @details name - имя сервера
-     *          server_token - ключ сервера, по которому пользователь
-     *                       может подключиться к данному серверу
-    */
-
-    executeRequest(R"(
-        CREATE TABLE servers (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,      
-            server_token TEXT UNIQUE NOT NULL,
-            hostID INTEGER NOT NULL
-        ); 
-    )");
-}
-
-void DataBase::createServersAndModulesTable(){
-    
-    /**
-     * @brief Создание сводной таблицы для описания отношения серверов и модулей
-     * @details server_id - id сервера
-     *          module_id - id модуля, который привязан к серверу с данным server_id
-     */
-
-    executeRequest(R"(
-        CREATE TABLE servers_modules (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            server_id INTEGER NOT NULL,
-            module_id INTEGER NOT NULL,
-            FOREIGN KEY (server_id) REFERENCES servers(id),
-            FOREIGN KEY (module_id) REFERENCES modules(id)
-        ); 
-    )");
-}
-
 void DataBase::createModuleTypesTable(){
     
     /**
@@ -305,17 +266,6 @@ void DataBase::createCapabilitiesTable(){
     )");
 }
 
-void DataBase::deleteServersTable(){
-
-    /**
-     * @brief Удаление таблицы с серверами
-     */
-
-    executeRequest(R"(
-        DROP TABLE servers;    
-    )");
-}
-
 void DataBase::deleteModuleTypesTable(){
 
     /**
@@ -360,50 +310,6 @@ void DataBase::deleteCapabilitiesTable(){
     )");
 }
 
-void DataBase::deleteServersAndModulesTable(){
-
-    /**
-     * @brief Удаление сводной таблицы с серверами и привязанными к ним модулями
-     */
-
-    executeRequest(R"(
-        DROP TABLE servers_modules;    
-    )");
-}
-
-
-void DataBase::deleteServerFromTables(long long server_id){
-
-    /**
-     * @brief Удаление сервера и всех к нему привязанных сущностей (модулей) из БД
-     * @param server_id id сервера, который необходимо удалить
-     */
-    
-    // Удаление из таблицы серверов
-    std::string sql = R"(
-        DELETE FROM servers
-        WHERE id = ?
-    )";
-    executeRequest(sql, {server_id});
-
-    // Получение id'шников всех модулей, которые привязаны к этому серверу
-    sql = R"(
-        SELECT
-            module_id
-        FROM servers_modules
-        WHERE server_id = ?
-    )";
-
-    // Удаление всех привязанных модулей
-    QueryResult response = executeQuery(sql, {server_id});
-    long long module_id;
-    for(int i = 0; i < response.size(); i++){
-        module_id = response.get<long long>(i, "module_id");
-        deleteModuleFromTables(module_id);
-    }
-
-}
-
 void DataBase::deleteModuleFromTables(long long module_id){
 
     /**
@@ -433,29 +339,6 @@ void DataBase::deleteModuleFromTables(long long module_id){
         WHERE module_id = ?
     )";
 
-}
-
-void DataBase::clearServersTable(){
-
-    /**
-     * @brief Очистка таблицы серверов с сохранением структуры столбцов
-     */
-
-    executeRequest(R"(
-        DELETE FROM servers;    
-    )");
-}
-
-void DataBase::clearServersAndModulesTable()
-{
-
-    /**
-     * @brief Очистка сводной таблицы серверов и модулей с сохранением структуры столбцов
-     */
-
-    executeRequest(R"(
-        DELETE FROM servers_modules;
-    )");
 }
 
 void DataBase::clearModuleTypesTable(){
@@ -502,72 +385,6 @@ void DataBase::clearCapabilitiesTable(){
     executeRequest(R"(
         DELETE FROM capabilities;
     )");
-}
-
-void DataBase::updateServerName(long long server_id, const std::string &new_server_name){
-   
-    /**
-     * @brief Обновление имени сервера
-     * @param server_id id сервера, у которого собираемся менять имя
-     * @param new_server_name новое имя сервера
-     */
-
-    std::string sql = R"(
-        UPDATE servers 
-        SET name = ?
-        WHERE id = ?
-    )";
-    executeRequest(sql, {new_server_name, server_id});
-}
-
-
-// void DataBase::updateDeviceStatus(bool new_status, const std::string &topic_pattern){
-//     std::string sql = R"(
-//         UPDATE devices 
-//         SET status = ?
-//         WHERE mqtt_topic LIKE ?
-//     )";
-//     executeRequest(sql, {new_status, topic_pattern});      
-// }
-
-
-
-
-void DataBase::addServer(long long user_id, const std::string &server_name, 
-                         const std::string &server_token){
-    
-    /**
-     * @brief Добавление сервера
-     * @param user_id id пользователя, который добавляет сервер
-     * @param server_name Имя создаваемого сервера
-     * @param server_token Ключ сервера, по которому пользователи
-     *                   могут подключаться к этому серверу
-     */
-
-    // Добавление в таблицу с серверами
-    std::string sql = R"(
-        INSERT INTO servers (name, server_token)
-        VALUES (?, ?)
-    )";
-    executeRequest(sql, {server_name, server_token});
-
-    // Получение id сервера, который только что добавили
-    sql = R"(
-        SELECT 
-            id
-        FROM servers 
-        ORDER BY id DESC 
-        LIMIT 1;
-    )";
-    QueryResult response = executeQuery(sql);
-    long long server_id = response.get<long long>(0, "id");
-    
-    // Добавление сервера в сводную таблицу пользователи-сервера
-    sql = R"(
-        INSERT INTO users_servers (user_id, server_id)
-        VALUES (?, ?)
-    )";
-    executeRequest(sql, {user_id, server_id});
 }
 
 long long DataBase::addModule(long long server_id, long long module_type_id, 
@@ -663,43 +480,6 @@ void DataBase::addModuleType(const std::string &name, const std::string &descrip
     )";
     executeRequest(sql, {name, description, creatorID});
 }
-
-
-std::vector<json> DataBase::getListOfServers(long long user_id)
-{
-
-    /**
-     * @brief Получение клиентом списка доступных серверов 
-     * @param user_id id пользователя, список серверов которого
-     *                мы хотим получить
-     * @return список json объектов, которые описывают сервера
-     */
-
-    std::cout << "user_id = " << user_id << std::endl;
-
-    std::vector<json> list_of_servers;
-    std::string sql = R"(
-        SELECT 
-            s.id as server_id,
-            s.name as server_name,
-            s.server_token as server_token  
-        FROM users_servers us
-        JOIN servers s ON us.server_id = s.id
-        WHERE user_id = ?;
-    )";
-
-    QueryResult response = executeQuery(sql, {user_id});
-    json server;
-    
-    for (size_t i = 0; i < response.rows.size(); i++){
-        server["server_id"] = response.get<long long>(i, "server_id");
-        server["name"] = response.get<std::string>(i, "server_name");
-        server["server_token"] = response.get<std::string>(i, "server_token");
-        list_of_servers.push_back(server);
-    }
-    return list_of_servers;
-}
-
 
 std::vector<json> DataBase::getListOfModules(long long server_id)
 {
