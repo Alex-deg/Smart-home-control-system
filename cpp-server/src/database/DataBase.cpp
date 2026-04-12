@@ -273,6 +273,28 @@ void DataBase::createCapabilitiesTable(){
     )");
 }
 
+void DataBase::createTelemetryTable(){
+
+    /**
+     * @brief Создание таблицы для хранения функий удаленного доступа к модулю
+     * @details module_id - id модуля 
+     * @details param_name - название параметра
+     * @details param_value - значение параметра
+     * @details timestamp - временная метка замера показания датчика
+     */
+
+    executeRequest(R"(
+        CREATE TABLE telemetry (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            module_id INTEGER NOT NULL,
+            param_name TEXT NOT NULL,
+            param_value REAL NOT NULL,
+            timestamp INTEGER NOT NULL,
+            FOREIGN KEY (module_id) REFERENCES module_id(id)
+        );   
+    )");
+}
+
 void DataBase::deleteModuleTypesTable(){
 
     /**
@@ -314,6 +336,17 @@ void DataBase::deleteCapabilitiesTable(){
 
     executeRequest(R"(
         DROP TABLE capabilities;    
+    )");
+}
+
+void DataBase::deleteTelemetryTable(){
+
+    /**
+     * @brief Удаление таблицы с телеметрией
+     */
+
+    executeRequest(R"(
+        DROP TABLE telemetry;
     )");
 }
 
@@ -376,6 +409,17 @@ void DataBase::clearCapabilitiesTable(){
 
     executeRequest(R"(
         DELETE FROM capabilities;
+    )");
+}
+
+void DataBase::clearTelemetryTable(){
+
+    /**
+     * @brief Очистка таблицы телеметрии с сохранением структуры столбцов
+     */
+
+    executeRequest(R"(
+        DELETE FROM telemetry;
     )");
 }
 
@@ -462,6 +506,25 @@ void DataBase::addModuleType(const std::string &name, const std::string &descrip
     executeRequest(sql, {name, description});
 }
 
+void DataBase::addTelemetry(long long module_id, const std::string &param_name, 
+                            double param_value, int timestamp){
+          
+    /**
+     * @brief Добавление телеметрии
+     * @param module_id - id модуля 
+     * @param param_name - название параметра
+     * @param param_value - значение параметра
+     * @param timestamp - временная метка замера показания датчика
+    */
+
+    // Добавление в таблицу с телеметрией
+    std::string sql = R"(
+        INSERT INTO telemetry(module_id, param_name, param_value, timestamp)
+        VALUES (?, ?, ?, ?)
+    )";
+    executeRequest(sql, {module_id, param_name, param_value, timestamp});
+}
+
 std::vector<json> DataBase::getListOfModules()
 {
     std::vector<json> list_of_modules;
@@ -544,4 +607,28 @@ std::vector<json> DataBase::getCapabilities(long long module_id)
         capabilities.push_back(cur_capability);
     }
     return capabilities;
+}
+
+/// @brief Получение значений param_name параметра с module_id модуля за последние time_interval минут
+
+std::vector<double> DataBase::getTelemtry(long long module_id, const std::string &param_name, int time_interval)
+{
+    std::vector<double> telemetry;
+
+    int start_time = time(NULL) - time_interval * 60;
+
+    std::string sql = R"(
+        SELECT
+            param_value
+        FROM telemetry
+        WHERE module_id = ? AND param_name = ? AND timestamp >= ?
+    )";
+
+    QueryResult response = executeQuery(sql, {module_id, param_name, time_interval});
+
+    for (int i = 0; i < response.size(); i++){
+        telemetry.push_back(response.get<double>(i, "param_value"));
+    }
+    
+    return telemetry;
 }
