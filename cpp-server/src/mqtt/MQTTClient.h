@@ -14,6 +14,12 @@
 class MQTTClient {
 public:
 
+    enum Topics{
+        DB_SAVE = 0,
+        DB_GET,
+        GUI_SEND
+    };
+
     using MessageCallback = std::function<void(const std::string& topic, 
                                                const std::string& payload)>;
 
@@ -68,6 +74,8 @@ private:
                          const std::string& payload, 
                          bool incoming);
     
+    Topics convertStringTopicToEnum(const std::string& topic);
+
     // Поток для обработки loop
     void loopThread();
     
