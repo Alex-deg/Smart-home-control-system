@@ -64,6 +64,7 @@ public:
     void createModuleTypesTable();
     void createModuleTypesAndCapabilitiesTable();
     void createCapabilitiesTable();
+    void createTelemetryTable();
     ///////////////////////////////////////////////////////////////////////////////////
 
 
@@ -73,6 +74,7 @@ public:
     void deleteModulesTable();
     void deleteModuleTypesAndCapabilities();
     void deleteCapabilitiesTable();
+    void deleteTelemetryTable();
     ///////////////////////////////////////////////////////////////////////////////////
 
 
@@ -88,6 +90,7 @@ public:
     void clearModulesTable();              
     void clearModuleTypesAndCapabilities();
     void clearCapabilitiesTable();
+    void clearTelemetryTable();
     ///////////////////////////////////////////////////////////////////////////////////
 
 
@@ -97,6 +100,8 @@ public:
                         const std::string& mqtt_topic);
     void addCapability(long long module_type_id, const std::string& name);
     void addModuleType(const std::string& name, const std::string& description);
+    void addTelemetry(long long module_id, const std::string& param_name, 
+                      double param_value, int timestamp);
     ///////////////////////////////////////////////////////////////////////////////////
 
 
@@ -105,6 +110,8 @@ public:
     std::vector<json> getListOfModules();
     std::vector<json> getListOfModuleTypes();
     std::vector<json> getCapabilities(long long module_id);
+    std::vector<double> getTelemtry(long long module_id, const std::string& param_name, 
+                                  int time_interval);
     ///////////////////////////////////////////////////////////////////////////////////
 
 };
