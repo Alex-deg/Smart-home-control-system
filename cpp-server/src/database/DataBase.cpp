@@ -609,6 +609,28 @@ std::vector<json> DataBase::getCapabilities(long long module_id)
     return capabilities;
 }
 
+json DataBase::getModuleInfo(long long module_id){
+
+    std::string sql = R"(
+        SELECT 
+            m.alias,
+            m.mqtt_topic,
+            mt.name,
+            mt.description
+        FROM modules m
+        JOIN module_types mt ON m.module_type_id = mt.id
+        WHERE m.id = ?
+    )";
+
+    QueryResult response = executeQuery(sql, {module_id});
+    json module_info;
+    module_info["alias"] = response.get<std::string>(0, "alias");
+    module_info["mqtt_topic"] = response.get<std::string>(0, "mqtt_topic");
+    module_info["name"] = response.get<std::string>(0, "name");
+    module_info["description"] = response.get<std::string>(0, "description");
+    return module_info;
+}
+
 /// @brief Получение значений param_name параметра с module_id модуля за последние time_interval минут
 
 std::vector<double> DataBase::getTelemtry(long long module_id, const std::string &param_name, int time_interval)
