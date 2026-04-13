@@ -110,6 +110,7 @@ public:
     std::vector<json> getListOfModules();
     std::vector<json> getListOfModuleTypes();
     std::vector<json> getCapabilities(long long module_id);
+    json getModuleInfo(long long module_id);
     std::vector<double> getTelemtry(long long module_id, const std::string& param_name, 
                                   int time_interval);
     ///////////////////////////////////////////////////////////////////////////////////
