@@ -349,7 +349,10 @@ void MQTTClient::processIncomingMessage(const std::string& topic,
     case Topics::DB_GET:
         try{
             std::vector<double> values = db_.getTelemtry(data["module_id"], data["param_name"], data["time_interval"]);
-            // Отправка на устройство
+            std::stringstream ss;
+            for (auto &&val : values){ ss << val << " "; }
+            json module_info = db_.getModuleInfo(data["module_id"]);
+            publish(module_info["mqtt_topic"] + "/data", ss.str(), 1);
         }
         catch(std::runtime_error &err){
             std::cerr << err.what() << std::endl;
