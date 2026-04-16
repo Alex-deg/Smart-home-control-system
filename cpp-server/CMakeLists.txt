@@ -7,9 +7,9 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(
     HEADER
-    ./include/crow_all.h
+    # ./include/crow_all.h
     ./src/database/DataBase.h
-    ./src/api/api.h
+    # ./src/api/api.h
     ./src/mqtt/MQTTClient.h
 )
 
@@ -17,7 +17,7 @@ set(
     SOURCE
     ./src/database/DataBase.cpp
     ./src/main.cpp
-    ./src/api/api.cpp
+    # ./src/api/api.cpp
     ./src/mqtt/MQTTClient.cpp
 )
 

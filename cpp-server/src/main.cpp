@@ -28,11 +28,11 @@ int main(){
     
     mqtt.startLoop();
 
-    API api(db, mqtt);
-    std::thread api_thread([&api]() {
-        std::cout << "Starting HTTP API server..." << std::endl;
-        api.run(); 
-    });
+    // API api(db, mqtt);
+    // std::thread api_thread([&api]() {
+    //     std::cout << "Starting HTTP API server..." << std::endl;
+    //     api.run(); 
+    // });
 
     // 5. Основной цикл приложения
     while (true) {
@@ -44,7 +44,7 @@ int main(){
         std::this_thread::sleep_for(std::chrono::seconds(10));
     }
 
-    api_thread.join();
+    // api_thread.join();
     mqtt.stopLoop();
 
     return 0;
