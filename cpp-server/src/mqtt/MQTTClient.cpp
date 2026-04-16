@@ -277,11 +277,11 @@ void MQTTClient::reconnect() {
 void MQTTClient::saveMessageToDB(const std::string& topic, 
                                 const std::string& payload, 
                                 bool incoming) {
-    try {
-        db_.addMQTTMessage(topic, payload, incoming);        
-    } catch (const std::exception& e) {
-        std::cerr << "Failed to save MQTT message to DB: " << e.what() << std::endl;
-    }
+    // try {
+    //     db_.addMQTTMessage(topic, payload, incoming);        
+    // } catch (const std::exception& e) {
+    //     std::cerr << "Failed to save MQTT message to DB: " << e.what() << std::endl;
+    // }
 }
 
 void MQTTClient::startLoop() {
