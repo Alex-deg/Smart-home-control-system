@@ -158,18 +158,12 @@ void MQTTClient::on_connect(struct mosquitto* mosq, void* obj, int rc) {
     if (rc == 0) {
         std::cout << "Successfully connected to MQTT broker" << std::endl;
         client->connected_ = true;
-        
-        // Отправляем сообщение о подключении
-        std::string topic = "system/status";
-        std::string message = R"({"client_id":")" + client->client_id_ + R"(","status":"online"})";
-        client->publish(topic, message, 1, true);
-        
-        // Подписываемся на топики по умолчанию
-        client->subscribe("devices/+/command", 1);     // Команды устройствам
-        client->subscribe("devices/+/status", 1);      // Статусы устройств
-        client->subscribe("sensors/+/data", 1);        // Данные с датчиков
-        client->subscribe("system/alerts", 2);         // Системные алерты
-        
+                
+        // Подписываемся на системные топики
+        client->subscribe("rpi/database/save", 1);     // Для сохранения данных с датчиков в БД (esp отдает данные серверу)
+        client->subscribe("rpi/database/get", 1);      // Для получения данных с БД (esp зпрашивает данные у сервера)
+        client->subscribe("rpi/gui/send_message", 1);  // Для отправки ответа пользователю на его команду (esp отдает данные серверу)
+                
         // Вызываем пользовательский callback
         if (client->on_connect_callback_) {
             client->on_connect_callback_();
@@ -282,6 +276,17 @@ void MQTTClient::saveMessageToDB(const std::string& topic,
     // } catch (const std::exception& e) {
     //     std::cerr << "Failed to save MQTT message to DB: " << e.what() << std::endl;
     // }
+
+}
+
+MQTTClient::Topics MQTTClient::convertStringTopicToEnum(const std::string &topic)
+{
+    if (topic == "rpi/database/save")
+        return Topics::DB_SAVE;
+    if (topic == "rpi/database/get")
+        return Topics::DB_GET;
+    if (topic == "rpi/gui/send_message")
+        return Topics::GUI_SEND;
 }
 
 void MQTTClient::startLoop() {
@@ -329,65 +334,42 @@ void MQTTClient::setOnMessageCallback(MessageCallback callback) {
 
 void MQTTClient::processIncomingMessage(const std::string& topic, 
                                        const std::string& payload) {
-    // Парсим топик
-    // Формат: devices/{device_id}/{command_or_status}
-    // Пример: devices/kitchen/light1/status
-    
-    if (topic.find("devices/") == 0) {
-        // Это сообщение от устройства
-        std::vector<std::string> parts;
-        std::istringstream iss(topic);
-        std::string part;
-        
-        while (std::getline(iss, part, '/')) {
-            parts.push_back(part);
-        }
-        
-        if (parts.size() >= 3) {
-            std::string device_id = parts[1]; // второй элемент после devices/
-            std::string message_type = parts[2]; // status или command
-            
-            try {
-                std::string topic_pattern = "%" + device_id + "%";
-                // db_.updateDeviceStatus(payload, topic_pattern);          
-            } catch (const std::exception& e) {
-                std::cerr << "Error processing device message: " << e.what() << std::endl;
-            }
-        }
-        
-    } 
-    // else if (topic.find("sensors/") == 0) {
-    //     // Данные с датчика
-    //     try {
-    //         std::string sql = R"(
-    //             INSERT INTO sensor_data (sensor_topic, data, created_at)
-    //             VALUES (?, ?, datetime('now'))
-    //         )";
-    //        
-    //         db_.executeRequest(sql, {topic, payload});
-    //        
-    //     } catch (const std::exception& e) {
-    //         std::cerr << "Error saving sensor data: " << e.what() << std::endl;
-    //     }
-    // }
-}
 
-// void MQTTClient::sendDeviceCommand(int device_id, const std::string& command) {
-//     try {
-//         // Получаем MQTT топик устройства из БД
-                
-//         std::string mqtt_topic = db_.getMQTTTopic(device_id);
-        
-//         // Добавляем /command к топику
-//         std::string command_topic = mqtt_topic + "/command";
-        
-//         // Публикуем команду
-//         publish(command_topic, command, 1, false);
-        
-//         std::cout << "Sent command to device " << device_id 
-//                     << " on topic " << command_topic << std::endl;
-        
-//     } catch (const std::exception& e) {
-//         std::cerr << "Error sending device command: " << e.what() << std::endl;
-//     }
-// }
+    json data = json::parse(payload);
+    Topics t =convertStringTopicToEnum(topic);
+    switch (t)
+    {
+    case Topics::DB_SAVE:
+        try{
+            db_.addTelemetry(data["module_id"], data["param_name"], data["param_value"], time(NULL));
+        }
+        catch(std::runtime_error &err){
+            std::cerr << err.what() << std::endl;
+        }
+        break;
+    case Topics::DB_GET:
+        try{
+            std::vector<double> values = db_.getTelemtry(data["module_id"], data["param_name"], data["time_interval"]);
+            std::stringstream ss;
+            for (auto &&val : values){ ss << val << " "; }
+            json module_info = db_.getModuleInfo(data["module_id"]);
+            publish(module_info["mqtt_topic"] + "/data", ss.str(), 1);
+        }
+        catch(std::runtime_error &err){
+            std::cerr << err.what() << std::endl;
+        }
+        break;
+    case Topics::GUI_SEND:
+        try{
+            // Отправка ответа клиенту
+        }
+        catch(std::runtime_error &err){
+            std::cerr << err.what() << std::endl;
+        }
+        break;
+    default:
+        std::cout << "There is no such service topic yet." << std::endl;
+        break;
+    }
+ 
+}
