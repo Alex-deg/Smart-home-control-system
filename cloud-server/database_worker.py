@@ -197,6 +197,73 @@ class IDataBase:
         except sqlite3.Error as e:
             raise DataBaseException(f"Backup failed: {e}")
 
+class Database(IDataBase):
+    def create_users_table(self):
+        sql = "CREATE TABLE users ( \
+            id INTEGER PRIMARY KEY AUTOINCREMENT, \
+            login TEXT NOT NULL, \
+            password TEXT NOT NULL, \
+        )"
+        self.execute_request(sql)
+
+    def create_servers_table(self):
+        sql = "CREATE TABLE servers ( \
+            id INTEGER PRIMARY KEY AUTOINCREMENT, \
+            name TEXT NOT NULL, \
+            token TEXT NOT NULL, \
+        )"
+        self.execute_request(sql)
+
+    def create_users_servers_table(self):
+        sql = "CREATE TABLE users_servers ( \
+            id INTEGER PRIMARY KEY AUTOINCREMENT, \
+            user_id INTEGER NOT NULL, \
+            server_id INTEGER NOT NULL, \
+            FOREIGN KEY (user_id) REFERENCES users(id), \
+            FOREIGN KEY (server_id) REFERENCES server(id) \
+        )"
+        self.execute_request(sql)
+
+    def clear_users_table(self):
+        sql = "DELETE FROM users"
+        self.execute_request(sql)
+
+    def clear_servers_table(self):
+        sql = "DELETE FROM servers"
+        self.execute_request(sql)
+
+    def clear_users_servers_table(self):
+        sql = "DELETE FROM users_servers"
+        self.execute_request(sql)
+    
+    def get_servers(self, user_id) -> List:
+        list_of_servers = []
+        sql = (
+            "SELECT" 
+            "    s.id as server_id,"
+            "    s.name as server_name"
+            "FROM users_servers us"
+            "JOIN servers s ON us.server_id = s.id"
+            "WHERE user_id = ?"
+        )
+        response = self.execute_query(sql, [user_id])
+        server = {}
+        for i in len(response):
+            server["id"] = response.get_int(i, "server_id")
+            server["name"] = response.get_str(i, "server_name")
+            list_of_servers.append(json.dumps(server))
+        return list_of_servers
+    
+    def add_user(self, login, password):
+        sql = "INSERT INTO users(login, password)" \
+              "VALUES (?, ?, ?)"
+        self.execute_request(sql, [login, password])
+    
+    def add_server(self, user_id, name, token):
+        sql = "INSERT INTO servers(name. token)" \
+              "VALUES (?, ?)"
+        self.execute_request(sql, [name. token])
+        # + реализовать добавление в сводную таблицу users_servers
 
 # if __name__ == "__main__":
 #     db = IDataBase("Data/users_database.db")
