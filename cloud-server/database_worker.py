@@ -10,7 +10,6 @@ SQLValue = Union[str, int, float, None]
 class DataBaseException(Exception):
     pass
 
-
 @dataclass
 class QueryResult:
     rows: List[List[SQLValue]] = field(default_factory=list)
@@ -81,7 +80,6 @@ class QueryResult:
     
     def __repr__(self) -> str:
         return f"QueryResult(rows={len(self.rows)}, cols={len(self.column_names)})"
-
 
 class IDataBase:
     
@@ -198,6 +196,7 @@ class IDataBase:
             raise DataBaseException(f"Backup failed: {e}")
 
 class Database(IDataBase):
+
     def create_users_table(self):
         sql = "CREATE TABLE users ( \
             id INTEGER PRIMARY KEY AUTOINCREMENT, \
@@ -236,6 +235,29 @@ class Database(IDataBase):
         sql = "DELETE FROM users_servers"
         self.execute_request(sql)
     
+    def add_user(self, login, password):
+        sql = "INSERT INTO users(login, password)" \
+              "VALUES (?, ?, ?)"
+        self.execute_request(sql, [login, password])
+    
+    def add_server(self, user_id, name, token):
+        sql = "INSERT INTO servers(name, token)" \
+              "VALUES (?, ?)"
+        self.execute_request(sql, [name, token])
+        sql = "SELECT" \
+              "    id" \
+              "FROM servers" \
+              "ORDER BY id DESC" \
+              "LIMIT 1;"
+        response = self.execute_query(sql)
+        server_id = response.get_int(0, "id")
+        self.add_users_servers(user_id, server_id)
+
+    def add_users_servers(self, user_id, server_id):
+        sql = "INSERT INTO users_servers(user_id, server_id)"\
+              "VALUES (?, ?)"
+        self.execute_request(sql, [user_id, server_id])
+
     def get_servers(self, user_id) -> List:
         list_of_servers = []
         sql = (
@@ -253,52 +275,5 @@ class Database(IDataBase):
             server["name"] = response.get_str(i, "server_name")
             list_of_servers.append(json.dumps(server))
         return list_of_servers
-    
-    def add_user(self, login, password):
-        sql = "INSERT INTO users(login, password)" \
-              "VALUES (?, ?, ?)"
-        self.execute_request(sql, [login, password])
-    
-    def add_server(self, user_id, name, token):
-        sql = "INSERT INTO servers(name. token)" \
-              "VALUES (?, ?)"
-        self.execute_request(sql, [name. token])
-        # + реализовать добавление в сводную таблицу users_servers
+       
 
-# if __name__ == "__main__":
-#     db = IDataBase("Data/users_database.db")
-    
-#     db.execute_request("""
-#         CREATE TABLE IF NOT EXISTS sensor_data (
-#             id INTEGER PRIMARY KEY AUTOINCREMENT,
-#             module_id TEXT NOT NULL,
-#             param_name TEXT NOT NULL,
-#             value REAL NOT NULL,
-#             timestamp INTEGER NOT NULL
-#         )
-#     """)
-    
-#     db.execute_request(
-#         "INSERT INTO sensor_data (module_id, param_name, value, timestamp) VALUES (?, ?, ?, ?)",
-#         ["esp32_01", "temperature", 23.5, 1704067200]
-#     )
-    
-#     result = db.execute_query(
-#         "SELECT * FROM sensor_data WHERE module_id = ? AND param_name = ?",
-#         ["esp32_01", "temperature"]
-#     )
-    
-#     print(f"Rows: {result.size()}, Columns: {result.column_names}")
-    
-#     if not result.empty():
-#         temp = result.get(0, "value")
-#         print(f"Temperature (by name): {temp}")
-        
-#         temp2 = result.get(0, 2)
-#         print(f"Temperature (by index): {temp2}")
-        
-#         print(f"Data: {result.to_dict_list()}")
-        
-#         print(f"JSON: {result.to_json(indent=2)}")
-    
-#     db.close()
