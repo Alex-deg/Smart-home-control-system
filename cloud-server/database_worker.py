@@ -258,6 +258,36 @@ class Database(IDataBase):
               "VALUES (?, ?)"
         self.execute_request(sql, [user_id, server_id])
 
+    def delete_server(self, server_id):
+        # Удаление из таблицы с серверами
+        sql = "DELETE FROM servers" \
+              "WHERE id = ?;"
+        self.execute_request(sql, [server_id])
+        # Удаление из сводной таблицы юзеры-серверы
+        sql = "DELETE FROM users_servers" \
+              "WHERE server_id = ?;"
+        self.execute_request(sql, [server_id])
+
+    def get_server_owner_id(self, server_id):
+        sql = "SELECT" \
+              "    user_id" \
+              "FROM users_servers"\
+              "WHERE server_id = ?"
+        response = self.execute_query(sql, [server_id])
+        return response.get_int(0, "user_id")
+
+    def get_server_info(self, server_id):
+        sql = "SELECT" \
+              "    *" \
+              "FROM servers" \
+              "WHERE id = ?"
+        response = self.execute_query(sql, [server_id])
+        server_info = json()
+        server_info["id"] = response.get_int(0, "id")
+        server_info["name"] = response.get_str(0, "name")
+        server_info["token"] = response.get_str(0, "token")
+        return server_info
+
     def get_servers(self, user_id) -> List:
         list_of_servers = []
         sql = (
