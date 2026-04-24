@@ -67,6 +67,7 @@ async def websocket_endpoint(websocket: WebSocket, server_token: str = Body(...)
         return
 
     db.add_server(temp_servers[server_token]["user_id"], temp_servers[server_token]["name"], server_token)
+    del temp_servers[server_token]
 
     await websocket.accept()
     try:

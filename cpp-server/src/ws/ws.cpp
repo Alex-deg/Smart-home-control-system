@@ -9,6 +9,8 @@
 #include <atomic>
 #include <signal.h>
 
+#include "../database/DataBase.h"
+
 using json = nlohmann::json;
 using websocketpp::connection_hdl;
 using websocketpp::lib::placeholders::_1;
@@ -26,8 +28,13 @@ void signal_handler(int sig) {
 
 class RPiWebSocketClient {
 public:
-    RPiWebSocketClient(const std::string& token, const std::string& server_uri)
-        : m_token(token), m_server_uri(server_uri), m_reconnect_delay(5), m_connected(false) {
+
+    using CommandCallback = std::function<void(const std::string& mqtt_topic,
+                                               const std::string& message,
+                                               int qos)>;
+
+    RPiWebSocketClient(const std::string& token, const std::string& server_url, DataBase &_db)
+        : m_token(token), m_server_url(server_url), m_reconnect_delay(5), m_connected(false), db(_db) {
         
         m_client.init_asio();
         
@@ -39,7 +46,7 @@ public:
     
     void connect() {
         websocketpp::lib::error_code ec;
-        auto con = m_client.get_connection(m_server_uri, ec);
+        auto con = m_client.get_connection(m_server_url + m_token, ec);
         if (ec) {
             std::cerr << "Ошибка подключения: " << ec.message() << std::endl;
             schedule_reconnect();
@@ -72,6 +79,10 @@ public:
     
     bool is_connected() const { return m_connected; }
     
+    void set_on_command(CommandCallback cb) {
+        m_mqtt_publish = cb;
+    }
+
 private:
     void on_open(connection_hdl hdl) {
         std::cout << "[+] WebSocket соединение установлено" << std::endl;
@@ -90,46 +101,10 @@ private:
         
         try {
             json data = json::parse(payload);
-            
-            if (data.contains("echo")) {
-                std::cout << "  (Эхо-ответ от сервера)" << std::endl;
-            }
-            else if (data.contains("status") && data["status"] == "ok") {
-                std::cout << "  (Подтверждение от сервера)" << std::endl;
-            }
-            else if (data.contains("action")) {
-                std::string action = data["action"];
-                std::cout << "  (Команда: " << action << ")" << std::endl;
-                
-                if (action == "turn_on") {
-                    std::string device = data.value("device", "");
-                    std::cout << "🔌 Выполняем: включить " << device << std::endl;
-                    bool success = execute_turn_on(device);
-                    
-                    json result = {
-                        {"action", "command_result"},
-                        {"command_id", data.value("command_id", 0)},
-                        {"result", success ? "ok" : "fail"}
-                    };
-                    send(result.dump());
-                }
-                else if (action == "turn_off") {
-                    std::string device = data.value("device", "");
-                    std::cout << "🔌 Выполняем: выключить " << device << std::endl;
-                    bool success = execute_turn_off(device);
-                    
-                    json result = {
-                        {"action", "command_result"},
-                        {"command_id", data.value("command_id", 0)},
-                        {"result", success ? "ok" : "fail"}
-                    };
-                    send(result.dump());
-                }
-                else if (action == "ping") {
-                    json pong = {{"action", "pong"}};
-                    send(pong.dump());
-                }
-            }
+            long long module_id = data["module_id"];
+            std::string capability = data["capability"];
+            json module_info = db.getModuleInfo(module_id);
+            m_mqtt_publish(module_info["mqtt_topic"], capability, 1);
         } catch (const json::parse_error& e) {
             std::cout << "  (Обычное текстовое сообщение)" << std::endl;
         }
@@ -173,50 +148,41 @@ private:
         }).detach();
     }
     
-    bool execute_turn_on(const std::string& device) {
-        std::cout << "  -> Включение " << device << std::endl;
-        return true;
-    }
-    
-    bool execute_turn_off(const std::string& device) {
-        std::cout << "  -> Выключение " << device << std::endl;
-        return true;
-    }
-    
 private:
     client m_client;
     std::string m_token;
-    std::string m_server_uri;
+    std::string m_server_url;
     connection_hdl m_hdl;
     int m_reconnect_delay;
     std::atomic<bool> m_connected;
+    DataBase db;
+    CommandCallback m_mqtt_publish;
 };
 
 int main() {
     signal(SIGINT, signal_handler);
     signal(SIGTERM, signal_handler);
     
-    std::string server_id;
+    std::string server_token;
     
     std::cout << "=== WebSocket клиент для тестирования ===" << std::endl;
-    std::cout << "Введите server_id (или нажмите Enter для использования demo): ";
-    std::getline(std::cin, server_id);
+    std::cout << "Введите токен сервера: ";
+    std::getline(std::cin, server_token);
     
-    if (server_id.empty()) {
-        server_id = "550e8400-e29b-41d4-a716-446655440000";
-        std::cout << "Используем demo server_id: " << server_id << std::endl;
+    if (server_token.empty()) {
+        std::cout << "Токен пуст!" << std::endl;
+        return 1;
     }
     
-    std::string server_uri = "ws://127.0.0.1:8000/ws/" + server_id;
-    std::cout << "Подключение к: " << server_uri << std::endl;
+    std::string base_server_url = "ws://127.0.0.1:8000/ws/";
     
-    auto client = std::make_unique<RPiWebSocketClient>("", server_uri);
+    auto client = std::make_unique<RPiWebSocketClient>(server_token, base_server_url);
     
     std::thread ws_thread([&]() {
         client->connect();
     });
     
-    std::this_thread::sleep_for(std::chrono::seconds(2));
+    std::this_thread::sleep_for(std::chrono::seconds(1));
     
     std::cout << "\n=== Управление ===" << std::endl;
     std::cout << "  • 'msg <текст>' - отправить произвольное сообщение" << std::endl;
