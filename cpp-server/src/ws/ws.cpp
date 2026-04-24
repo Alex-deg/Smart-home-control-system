@@ -101,11 +101,49 @@ private:
         
         try {
             json data = json::parse(payload);
-            long long module_id = data["module_id"];
-            std::string capability = data["capability"];
-            json module_info = db.getModuleInfo(module_id);
-            m_mqtt_publish(module_info["mqtt_topic"], capability, 1);
-        } catch (const json::parse_error& e) {
+            std::string action = data["action"];
+            if(action == "send_command"){
+                long long module_id = data["params"]["module_id"];
+                json module_info = db.getModuleInfo(module_id);
+                m_mqtt_publish(module_info["mqtt_topic"], data["params"]["action"], 1);
+            }
+            else{
+                if (action == "get_modules"){
+                    std::string response = "";
+                    auto modules = db.getListOfModules();
+                    for (auto &&module : modules){
+                        response += module.dump();
+                    }
+                    send(response);
+                }
+                else if (action == "get_module_capabilities"){
+                    std::string response = "";
+                    long long module_id = data["params"]["module_id"];
+                    auto capabilities = db.getCapabilities(module_id);
+                    for (auto &&capabilitity : capabilities){
+                        response += capabilitity.dump();
+                    }
+                    send(response);
+                }
+                else if (action == "update_module"){
+                    // Сделать метод обновления модуля
+                }
+                else if (action == "add_capability"){
+                    db.addCapability(data["params"]["module_type_id"], data["params"]["name"]);
+                }
+                else if (action == "delete_module"){
+                    db.deleteModuleFromTables(data["params"]["module_id"]);
+                }
+                else if (action == "delete_capability"){
+                    // Сделать удаление возможности из таблиц
+                }
+                else if (action == "unbind_capability"){
+                    // Сделать отвязку возможности от модуля, но не удалять из таблицы capabilities
+                }
+                else std::cout << "Unknown type of command type" << std::endl;
+            }
+        }
+        catch (const json::parse_error& e) {
             std::cout << "  (Обычное текстовое сообщение)" << std::endl;
         }
     }
