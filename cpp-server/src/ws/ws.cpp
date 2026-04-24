@@ -126,7 +126,7 @@ private:
                     send(response);
                 }
                 else if (action == "update_module"){
-                    // Сделать метод обновления модуля
+                    db.updateModuleInfo(data["params"]["module_id"], data["params"]["name"], data["params"]["alias"]);
                 }
                 else if (action == "add_capability"){
                     db.addCapability(data["params"]["module_type_id"], data["params"]["name"]);
@@ -135,10 +135,10 @@ private:
                     db.deleteModuleFromTables(data["params"]["module_id"]);
                 }
                 else if (action == "delete_capability"){
-                    // Сделать удаление возможности из таблиц
+                    db.deleteCapabilityFromTable(data["params"]["capability_id"]);
                 }
                 else if (action == "unbind_capability"){
-                    // Сделать отвязку возможности от модуля, но не удалять из таблицы capabilities
+                    db.unbindCapabilityInModule(data["params"]["module_id"], data["params"]["capability_id"]);
                 }
                 else std::cout << "Unknown type of command type" << std::endl;
             }

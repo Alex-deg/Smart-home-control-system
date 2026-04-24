@@ -61,8 +61,7 @@ public:
 
     /////////////////СОЗДАНИЕ ТАБЛИЦ ОСНОВНЫХ СУЩНОСТЕЙ И ИХ ОТНОШЕНИЙ/////////////////  
     void createModulesTable();
-    void createModuleTypesTable();
-    void createModuleTypesAndCapabilitiesTable();
+    void createModulesAndCapabilitiesTable();
     void createCapabilitiesTable();
     void createTelemetryTable();
     ///////////////////////////////////////////////////////////////////////////////////
@@ -70,9 +69,8 @@ public:
 
 
     //////////////////////////////////УДАЛЕНИЕ ТАБЛИЦ//////////////////////////////////
-    void deleteModuleTypesTable();
     void deleteModulesTable();
-    void deleteModuleTypesAndCapabilities();
+    void deleteModulesAndCapabilities();
     void deleteCapabilitiesTable();
     void deleteTelemetryTable();
     ///////////////////////////////////////////////////////////////////////////////////
@@ -81,14 +79,21 @@ public:
 
     ////////////////////////////УДАЛЕНИЕ КОНКРЕТНЫХ ЗАПИСЕЙ////////////////////////////
     void deleteModuleFromTables(long long module_id);
+    void deleteCapabilityFromTable(long long capability_id);
+    void unbindCapabilityInModule(long long module_id, long long capability_id);
     ///////////////////////////////////////////////////////////////////////////////////
 
 
 
+    ////////////////////////////////ОБНОВЛЕНИЕ ЗАПИСЕЙ/////////////////////////////////
+    void updateModuleInfo(long long module_id, const std::string& name, 
+                          const std::string& alias);
+    ///////////////////////////////////////////////////////////////////////////////////
+
+
     //////////////////////////////////ОЧИСТКА ТАБЛИЦ///////////////////////////////////;
-    void clearModuleTypesTable();          
     void clearModulesTable();              
-    void clearModuleTypesAndCapabilities();
+    void clearModulesAndCapabilities();
     void clearCapabilitiesTable();
     void clearTelemetryTable();
     ///////////////////////////////////////////////////////////////////////////////////
@@ -96,10 +101,9 @@ public:
 
 
     ///////////////////////////ЗАПОЛНЕНИЕ ТАБЛИЦ ЗНАЧЕНИЯМИ////////////////////////////
-    long long addModule(long long module_type_id, const std::string& alias, 
+    long long addModule(const std::string& name, const std::string& alias, 
                         const std::string& mqtt_topic);
-    void addCapability(long long module_type_id, const std::string& name);
-    void addModuleType(const std::string& name, const std::string& description);
+    void addCapability(long long module_id, const std::string& name);
     void addTelemetry(long long module_id, const std::string& param_name, 
                       double param_value, int timestamp);
     ///////////////////////////////////////////////////////////////////////////////////
@@ -108,7 +112,6 @@ public:
 
     ////////////////////////////ПОЛУЧЕНИЕ ДАННЫХ ИЗ ТАБЛИЦ/////////////////////////////
     std::vector<json> getListOfModules();
-    std::vector<json> getListOfModuleTypes();
     std::vector<json> getCapabilities(long long module_id);
     json getModuleInfo(long long module_id);
     std::vector<double> getTelemtry(long long module_id, const std::string& param_name, 
