@@ -138,6 +138,8 @@ async def send_command(user_id: int, server_id: int, module_id : int, capability
     owner_id = db.get_server_owner_id(server_id)
     if owner_id != user_id:
         raise HTTPException(status_code=403, detail="Not owned")
+    print(server_info)
+    print(active_connections)
     ws = active_connections.get(server_info["token"])
     if not ws:
         raise HTTPException(status_code=404, detail="RPi not connected")
