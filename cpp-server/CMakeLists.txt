@@ -5,11 +5,11 @@ project(SmartHomeSystem)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+find_package(Boost REQUIRED COMPONENTS system thread)
+
 set(
     HEADER
-    # ./include/crow_all.h
     ./src/database/DataBase.h
-    # ./src/api/api.h
     ./src/mqtt/MQTTClient.h
 )
 
@@ -17,7 +17,7 @@ set(
     SOURCE
     ./src/database/DataBase.cpp
     ./src/main.cpp
-    # ./src/api/api.cpp
+    ./src/ws/ws.cpp
     ./src/mqtt/MQTTClient.cpp
 )
 
@@ -36,14 +36,10 @@ add_executable(SmartHomeSystem ${HEADER} ${SOURCE})
 target_link_libraries(${PROJECT_NAME}
     PRIVATE
     SQLite::SQLite3
-    
     ${MOSQUITTO_LIB}
+    ${Boost_LIBRARIES}
     pthread
     ${CMAKE_THREAD_LIBS_INIT}
 )
 
-# if (SQLite3_FOUND)
-#     target_link_libraries(SmartHomeSystem PRIVATE SQLite::SQLite3)
-# else()
-#     message(FATAL_ERROR "SQLite3 not found!")
-# endif()
+target_include_directories(${PROJECT_NAME} PRIVATE ${Boost_INCLUDE_DIRS})
