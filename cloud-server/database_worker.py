@@ -365,10 +365,10 @@ class Database(IDataBase):
     def add_capability(self, module_id, name):
         # Проверка на уже существующие функции
         sql = (
-            "SELECT"
-            "    id"
-            "FROM capabilities"
-            "WHERE name = ?"
+            "SELECT "
+            "    id "
+            "FROM capabilities "
+            "WHERE name = ?;"
         )
         response = self.execute_query(sql, [name])
         if response.size() > 0:
