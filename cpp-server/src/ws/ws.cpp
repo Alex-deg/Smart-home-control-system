@@ -19,12 +19,12 @@ using websocketpp::lib::bind;
 
 typedef websocketpp::client<websocketpp::config::asio_client> client;
 
-std::atomic<bool> g_running(true);
+// std::atomic<bool> g_running(true);
 
-void signal_handler(int sig) {
-    std::cout << "\nПолучен сигнал остановки..." << std::endl;
-    g_running = false;
-}
+// void signal_handler(int sig) {
+//     std::cout << "\nПолучен сигнал остановки..." << std::endl;
+//     g_running = false;
+// }
 
 class RPiWebSocketClient {
 public:
@@ -49,7 +49,7 @@ public:
         auto con = m_client.get_connection(m_server_url + m_token, ec);
         if (ec) {
             std::cerr << "Ошибка подключения: " << ec.message() << std::endl;
-            schedule_reconnect();
+            // schedule_reconnect();
             return;
         }
         m_client.connect(con);
@@ -113,14 +113,14 @@ private:
         std::cout << "[-] Соединение закрыто. Переподключение через " 
                   << m_reconnect_delay << " секунд..." << std::endl;
         m_connected = false;
-        schedule_reconnect();
+        // schedule_reconnect();
     }
     
     void on_fail(connection_hdl hdl) {
         std::cout << "[!] Ошибка соединения. Переподключение через " 
                   << m_reconnect_delay << " секунд..." << std::endl;
         m_connected = false;
-        schedule_reconnect();
+        // schedule_reconnect();
     }
     
     void send(const std::string& message) {
@@ -133,19 +133,19 @@ private:
         }
     }
     
-    void schedule_reconnect() {
-        if (!g_running) return;
+    // void schedule_reconnect() {
+    //     if (!g_running) return;
         
-        std::thread([this]() {
-            std::this_thread::sleep_for(std::chrono::seconds(m_reconnect_delay));
-            if (m_reconnect_delay < 60) m_reconnect_delay *= 2;
+    //     std::thread([this]() {
+    //         std::this_thread::sleep_for(std::chrono::seconds(m_reconnect_delay));
+    //         if (m_reconnect_delay < 60) m_reconnect_delay *= 2;
             
-            if (g_running) {
-                m_client.reset();
-                connect();
-            }
-        }).detach();
-    }
+    //         if (g_running) {
+    //             m_client.reset();
+    //             connect();
+    //         }
+    //     }).detach();
+    // }
     
 private:
     client m_client;
@@ -156,95 +156,3 @@ private:
     std::atomic<bool> m_connected;
     CommandCallback m_mqtt_publish;
 };
-
-int main() {
-    signal(SIGINT, signal_handler);
-    signal(SIGTERM, signal_handler);
-    
-    std::string server_token;
-    
-    std::cout << "=== WebSocket клиент для тестирования ===" << std::endl;
-    std::cout << "Введите токен сервера: ";
-    std::getline(std::cin, server_token);
-    
-    if (server_token.empty()) {
-        std::cout << "Токен пуст!" << std::endl;
-        return 1;
-    }
-    
-    std::string base_server_url = "ws://127.0.0.1:8000/ws/bind_server/";
-    
-    auto client = std::make_unique<RPiWebSocketClient>(server_token, base_server_url);
-    
-    std::thread ws_thread([&]() {
-        client->connect();
-    });
-    
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-    
-    std::cout << "\n=== Управление ===" << std::endl;
-    std::cout << "  • 'msg <текст>' - отправить произвольное сообщение" << std::endl;
-    std::cout << "  • 'turn_on <устройство>' - отправить команду включения" << std::endl;
-    std::cout << "  • 'turn_off <устройство>' - отправить команду выключения" << std::endl;
-    std::cout << "  • 'ping' - отправить ping" << std::endl;
-    std::cout << "  • 'quit' - выход" << std::endl;
-    std::cout << "==========================================\n" << std::endl;
-    
-    std::string input;
-    while (g_running) {
-        std::getline(std::cin, input);
-        
-        if (input == "quit" || input == "q") {
-            g_running = false;
-            break;
-        }
-        
-        if (!client->is_connected()) {
-            std::cout << "Соединение не установлено. Подождите..." << std::endl;
-            continue;
-        }
-        
-        if (input.substr(0, 4) == "msg ") {
-            std::string message = input.substr(4);
-            client->send_message(message);
-        }
-        else if (input.substr(0, 8) == "turn_on ") {
-            std::string device = input.substr(8);
-            json command = {
-                {"action", "turn_on"},
-                {"device", device},
-                {"command_id", 123}
-            };
-            client->send_message(command.dump());
-        }
-        else if (input.substr(0, 9) == "turn_off ") {
-            std::string device = input.substr(9);
-            json command = {
-                {"action", "turn_off"},
-                {"device", device},
-                {"command_id", 124}
-            };
-            client->send_message(command.dump());
-        }
-        else if (input == "ping") {
-            json ping = {{"action", "ping"}};
-            client->send_message(ping.dump());
-        }
-        else if (input.empty()) {
-            continue;
-        }
-        else {
-            std::cout << "Неизвестная команда. Доступные команды:" << std::endl;
-            std::cout << "  msg <текст>, turn_on <устройство>, turn_off <устройство>, ping, quit" << std::endl;
-        }
-    }
-    
-    std::cout << "Останавливаем клиент..." << std::endl;
-    client->stop();
-    if (ws_thread.joinable()) {
-        ws_thread.join();
-    }
-    
-    std::cout << "Клиент остановлен." << std::endl;
-    return 0;
-}
