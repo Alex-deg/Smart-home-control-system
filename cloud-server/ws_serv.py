@@ -84,7 +84,7 @@ async def add_capability(module_id : int, name : str = Body(...)):
 
 @app.delete("/api/users/{user_id}/servers/{server_id}/modules/{module_id}/capabilities/{capability_id}/delete")
 async def delete_capability(capability_id : int):
-    db.delete_capability(capability_id)
+    db.delete_capability_from_tables(capability_id)
 
 @app.post("/api/users/{user_id}/servers/{server_id}/modules/{module_id}/capabilities/{capability_id}/unbind")
 async def undind_module_capability(module_id : int, capability_id : int):

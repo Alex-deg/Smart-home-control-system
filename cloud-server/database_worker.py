@@ -231,7 +231,7 @@ class Database(IDataBase):
 
     def create_servers_modules_table(self):
         sql = (
-            "CREATE TABLE server_modules ( "
+            "CREATE TABLE servers_modules ( "
             "    id INTEGER PRIMARY KEY AUTOINCREMENT, "
             "    server_id INTEGER NOT NULL, "
             "    module_id INTEGER NOT NULL, "
@@ -279,7 +279,7 @@ class Database(IDataBase):
         self.execute_request(sql)
 
     def clear_servers_table(self):
-        sql = "DELETE FROM servers; "
+        sql = "DELETE FROM servers;"
         self.execute_request(sql)
 
     def clear_users_servers_table(self):
@@ -363,21 +363,32 @@ class Database(IDataBase):
         self.execute_request(sql, [server_id, module_id])
 
     def add_capability(self, module_id, name):
-        # Добавление в таблицу modules
+        # Проверка на уже существующие функции
         sql = (
-            "INSERT INTO capabilities(name) " 
-            "VALUES (?);"
+            "SELECT"
+            "    id"
+            "FROM capabilities"
+            "WHERE name = ?"
         )
-        self.execute_request(sql, [name])
-        sql = (
-            "SELECT " 
-            "    id " 
-            "FROM capabilities " 
-            "ORDER BY id DESC " 
-            "LIMIT 1; "
-        )
-        response = self.execute_query(sql)
-        capability_id = response.get_int(0, "id")
+        response = self.execute_query(sql, [name])
+        if response.size() > 0:
+            capability_id = response.get_int(0, "id")
+        else:
+            # Добавление в таблицу modules
+            sql = (
+                "INSERT INTO capabilities(name) " 
+                "VALUES (?);"
+            )
+            self.execute_request(sql, [name])
+            sql = (
+                "SELECT " 
+                "    id " 
+                "FROM capabilities " 
+                "ORDER BY id DESC " 
+                "LIMIT 1; "
+            )
+            response = self.execute_query(sql)
+            capability_id = response.get_int(0, "id")
         # Добавление в сводную таблицу modules_capabilities
         self.add_modules_capabilities(module_id, capability_id)
 
@@ -395,12 +406,6 @@ class Database(IDataBase):
             "WHERE server_id = ?;"
         )
         self.execute_request(sql, [server_id])
-        # Удаление из таблицы с серверами
-        sql = (
-            "DELETE FROM servers " 
-            "WHERE id = ?;"
-        )
-        self.execute_request(sql, [server_id])
         sql = (
             "SELECT " 
             "    module_id " 
@@ -412,6 +417,13 @@ class Database(IDataBase):
         for i in range(response.size()):
             module_id = response.get_int(i, "module_id")
             self.delete_module_from_tables(module_id)
+        # Удаление из таблицы с серверами
+        sql = (
+            "DELETE FROM servers " 
+            "WHERE id = ?;"
+        )
+        self.execute_request(sql, [server_id])
+        
 
     def delete_module_from_tables(self, module_id):
         # Удаление из сводной таблицы серверы-модули
@@ -420,16 +432,16 @@ class Database(IDataBase):
             "WHERE module_id = ?;"
         )
         self.execute_request(sql, [module_id])
-        # Удаление из таблицы с модулями
-        sql = (
-            "DELETE FROM modules " 
-            "WHERE id = ?;"
-        )
-        self.execute_request(sql, [module_id])
         # Удаление из сводной таблицы модули-возможности
         sql = (
             "DELETE FROM modules_capabilities " 
             "WHERE module_id = ?;"
+        )
+        self.execute_request(sql, [module_id])
+        # Удаление из таблицы с модулями
+        sql = (
+            "DELETE FROM modules " 
+            "WHERE id = ?"
         )
         self.execute_request(sql, [module_id])
 
@@ -466,7 +478,7 @@ class Database(IDataBase):
         )
         response = self.execute_query(sql, [user_id])
         server = {}
-        for i in response.size():
+        for i in range(response.size()):
             server["id"] = response.get_int(i, "server_id")
             server["name"] = response.get_str(i, "server_name")
             list_of_servers.append(json.dumps(server))
@@ -487,7 +499,7 @@ class Database(IDataBase):
         )
         response = self.execute_query(sql, [server_id])
         module = {}
-        for i in response.size():
+        for i in range(response.size()):
             module["id"] = response.get_int(i, "id")
             module["name"] = response.get_str(i, "name")
             module["alias"] = response.get_str(i, "alias")
@@ -503,12 +515,12 @@ class Database(IDataBase):
             "    c.id, "
             "    c.name "
             "FROM modules_capabilities mc "
-            "JOIN capabilities c ON mc.capability = c.id "
+            "JOIN capabilities c ON mc.capability_id = c.id "
             "WHERE module_id = ?;"
         )
         response = self.execute_query(sql, [module_id])
         capability = {}
-        for i in response.size():
+        for i in range(response.size()):
             capability["id"] = response.get_int(i, "id")
             capability["name"] = response.get_str(i, "name")
             list_of_capabilities.append(json.dumps(capability))
@@ -532,7 +544,7 @@ class Database(IDataBase):
             "WHERE id = ?;"
         )
         response = self.execute_query(sql, [user_id])
-        user_info = json()
+        user_info = {}
         user_info["id"] = response.get_int(0, "id")
         user_info["login"] = response.get_str(0, "login")
         user_info["password"] = response.get_str(0, "password")
@@ -546,7 +558,7 @@ class Database(IDataBase):
             "WHERE id = ?;"
         )
         response = self.execute_query(sql, [server_id])
-        server_info = json()
+        server_info = {}
         server_info["id"] = response.get_int(0, "id")
         server_info["name"] = response.get_str(0, "name")
         server_info["token"] = response.get_str(0, "token")
@@ -560,7 +572,7 @@ class Database(IDataBase):
             "WHERE id = ?;"
         )
         response = self.execute_query(sql, [module_id])
-        module_info = json()
+        module_info = {}
         module_info["id"] = response.get_int(0, "id")
         module_info["name"] = response.get_str(0, "name")
         module_info["alias"] = response.get_str(0, "alias")
@@ -576,7 +588,7 @@ class Database(IDataBase):
             "WHERE id = ?;"
         )
         response = self.execute_query(sql, [capability_id])
-        capability_info = json()
+        capability_info = {}
         capability_info["id"] = response.get_int(0, "id")
         capability_info["name"] = response.get_str(0, "name")
         return capability_info
@@ -601,3 +613,9 @@ class Database(IDataBase):
     def delete_table_by_name(self, name : str):
         sql = "DROP TABLE " + name
         self.execute_request(sql)
+
+# if __name__ == "__main__":
+#     db = Database("Data/users_database.db")
+#     db.clear_servers_table()
+#     db.clear_capabilities_table()
+    
