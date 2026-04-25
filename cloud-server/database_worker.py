@@ -219,8 +219,45 @@ class Database(IDataBase):
             user_id INTEGER NOT NULL, \
             server_id INTEGER NOT NULL, \
             FOREIGN KEY (user_id) REFERENCES users(id), \
-            FOREIGN KEY (server_id) REFERENCES server(id) \
+            FOREIGN KEY (server_id) REFERENCES servers(id) \
         )"
+        self.execute_request(sql)
+
+    def create_servers_modules_table(self):
+        sql = "CREATE TABLE server_modules ( \
+            id INTEGER PRIMARY KEY AUTOINCREMENT, \
+            server_id INTEGER NOT NULL, \
+            module_id INTEGER NOT NULL, \
+            FOREIGN KEY (server_id) REFERENCES servers(id), \
+            FOREIGN KEY (module_id) REFERENCES modules(id) \
+        )"
+        self.execute_request(sql)
+
+    def create_modules_table(self):
+        sql = "CREATE TABLE modules ( \
+            id INTEGER PRIMARY KEY AUTOINCREMENT, \
+            name TEXT NOT NULL, \
+            alias TEXT NOT NULL, \
+            mqtt_topic TEXT NOT NULL, \
+            description TEXT \
+        );"
+        self.execute_request(sql)
+
+    def create_capabilities_table(self):
+        sql = "CREATE TABLE capabilities ( \
+            id INTEGER PRIMARY KEY AUTOINCREMENT, \
+            name TEXT NOT NULL \
+        );"
+        self.execute_request(sql)
+
+    def create_modules_capabilities_table(self):
+        sql = "CREATE TABLE modules_capabilities ( \
+            id INTEGER PRIMARY KEY AUTOINCREMENT, \
+            module_id INTEGER NOT NULL, \
+            capability_id INTEGER NOT NULL, \
+            FOREIGN KEY (module_id) REFERENCES modules(id), \
+            FOREIGN KEY (capability_id) REFERENCES capabilities(id) \
+        );"
         self.execute_request(sql)
 
     def clear_users_table(self):
@@ -234,13 +271,30 @@ class Database(IDataBase):
     def clear_users_servers_table(self):
         sql = "DELETE FROM users_servers"
         self.execute_request(sql)
+
+    def clear_modules_table(self):
+        sql = "DELETE FROM modules"
+        self.execute_request(sql)
     
+    def clear_servers_modules_table(self):
+        sql = "DELETE FROM servers_modules"
+        self.execute_request(sql)
+
+    def clear_capabilities_table(self):
+        sql = "DELETE FROM capabilities"
+        self.execute_request(sql)
+
+    def clear_modules_capabilities_table(self):
+        sql = "DELETE FROM modules_capabilities"
+        self.execute_request(sql)
+
     def add_user(self, login, password):
         sql = "INSERT INTO users(login, password)" \
-              "VALUES (?, ?, ?)"
+              "VALUES (?, ?)"
         self.execute_request(sql, [login, password])
     
     def add_server(self, user_id, name, token):
+        # Добавление в таблицу servers
         sql = "INSERT INTO servers(name, token)" \
               "VALUES (?, ?)"
         self.execute_request(sql, [name, token])
@@ -251,6 +305,7 @@ class Database(IDataBase):
               "LIMIT 1;"
         response = self.execute_query(sql)
         server_id = response.get_int(0, "id")
+        # Добавление в сводную таблицу users_servers
         self.add_users_servers(user_id, server_id)
 
     def add_users_servers(self, user_id, server_id):
@@ -258,35 +313,94 @@ class Database(IDataBase):
               "VALUES (?, ?)"
         self.execute_request(sql, [user_id, server_id])
 
-    def delete_server(self, server_id):
-        # Удаление из таблицы с серверами
-        sql = "DELETE FROM servers" \
-              "WHERE id = ?;"
-        self.execute_request(sql, [server_id])
+    def add_module(self, server_id, name, alias, 
+                         mqtt_topic, description = ""):
+        # Добавление в таблицу modules
+        sql = "INSERT INTO modules(name, alias, mqtt_topic, description)" \
+              "VALUES (?, ?, ?, ?)"
+        self.execute_request(sql, [name, alias, mqtt_topic, description])
+        sql = "SELECT" \
+              "    id" \
+              "FROM modules" \
+              "ORDER BY id DESC" \
+              "LIMIT 1;"
+        response = self.execute_query(sql)
+        module_id = response.get_int(0, "id")
+        # Добавление в сводную таблицу servers_modules
+        self.add_servers_modules(server_id, module_id)
+
+    def add_servers_modules(self, server_id, module_id):
+        sql = "INSERT INTO servers_modules(server_id, module_id)" \
+              "VALUES (?, ?)"
+        self.execute_request(sql, [server_id, module_id])
+
+    def add_capability(self, module_id, name):
+        # Добавление в таблицу modules
+        sql = "INSERT INTO capabilities(name)" \
+              "VALUES (?)"
+        self.execute_request(sql, [name])
+        sql = "SELECT" \
+              "    id" \
+              "FROM capabilities" \
+              "ORDER BY id DESC" \
+              "LIMIT 1;"
+        response = self.execute_query(sql)
+        capability_id = response.get_int(0, "id")
+        # Добавление в сводную таблицу modules_capabilities
+        self.add_modules_capabilities(module_id, capability_id)
+
+    def add_modules_capabilities(self, module_id, capability_id):
+        sql = "INSERT INTO modules_capabilities(module_id, capability_id)" \
+              "VALUES (?, ?)"
+        self.execute_request(sql, [module_id, capability_id])
+
+    def delete_server_from_tables(self, server_id):
         # Удаление из сводной таблицы юзеры-серверы
         sql = "DELETE FROM users_servers" \
               "WHERE server_id = ?;"
         self.execute_request(sql, [server_id])
-
-    def get_server_owner_id(self, server_id):
+        # Удаление из таблицы с серверами
+        sql = "DELETE FROM servers" \
+              "WHERE id = ?;"
+        self.execute_request(sql, [server_id])
         sql = "SELECT" \
-              "    user_id" \
-              "FROM users_servers"\
+              "    module_id" \
+              "FROM servers_modules" \
               "WHERE server_id = ?"
         response = self.execute_query(sql, [server_id])
-        return response.get_int(0, "user_id")
+        # Удаление привязанных модулей
+        for i in range(response.size()):
+            module_id = response.get_int(i, "module_id")
+            self.delete_module_from_tables(module_id)
 
-    def get_server_info(self, server_id):
-        sql = "SELECT" \
-              "    *" \
-              "FROM servers" \
-              "WHERE id = ?"
-        response = self.execute_query(sql, [server_id])
-        server_info = json()
-        server_info["id"] = response.get_int(0, "id")
-        server_info["name"] = response.get_str(0, "name")
-        server_info["token"] = response.get_str(0, "token")
-        return server_info
+    def delete_module_from_tables(self, module_id):
+        # Удаление из сводной таблицы серверы-модули
+        sql = "DELETE FROM servers_modules" \
+              "WHERE module_id = ?;"
+        self.execute_request(sql, [module_id])
+        # Удаление из таблицы с модулями
+        sql = "DELETE FROM modules" \
+              "WHERE id = ?;"
+        self.execute_request(sql, [module_id])
+        # Удаление из сводной таблицы модули-возможности
+        sql = "DELETE FROM modules_capabilities" \
+              "WHERE module_id = ?;"
+        self.execute_request(sql, [module_id])
+
+    def delete_capability_from_tables(self, capability_id):
+        # Удаление из сводной таблицы модули-возможности
+        sql = "DELETE FROM modules_capabilities" \
+              "WHERE capability_id = ?;"
+        self.execute_request(sql, [capability_id])
+        # Удаление из таблицы с возможностями
+        sql = "DELETE FROM capabilities" \
+              "WHERE id = ?;"
+        self.execute_request(sql, [capability_id])
+
+    def unbind_module_capability(self, module_id, capability_id):
+        sql = "DELETE FROM modules_capabilities" \
+              "WHERE module_id = ? AND capability_id = ?"
+        self.execute_request(sql, [module_id, capability_id])
 
     def get_servers(self, user_id) -> List:
         list_of_servers = []
@@ -306,4 +420,64 @@ class Database(IDataBase):
             list_of_servers.append(json.dumps(server))
         return list_of_servers
        
+    def get_modules(self, server_id) -> List:
+        list_of_modules = []
+        sql = (
+            "SELECT" 
+            "    m.id,"
+            "    m.name,"
+            "    m.alias,"
+            "    m.mqtt_topic,"
+            "    m.description"
+            "FROM servers_modules sm"
+            "JOIN modules m ON sm.module_id = m.id"
+            "WHERE server_id = ?"
+        )
+        response = self.execute_query(sql, [server_id])
+        module = {}
+        for i in len(response):
+            module["id"] = response.get_int(i, "id")
+            module["name"] = response.get_str(i, "name")
+            module["alias"] = response.get_str(i, "alias")
+            module["mqtt_topic"] = response.get_str(i, "mqtt_topic")
+            module["description"] = response.get_str(i, "description")
+            list_of_modules.append(json.dumps(module))
+        return list_of_modules
+       
+    def get_capabilities(self, module_id) -> List:
+        list_of_capabilities = []
+        sql = (
+            "SELECT" 
+            "    c.id,"
+            "    c.name,"
+            "FROM modules_capabilities mc"
+            "JOIN capabilities c ON mc.capability = c.id"
+            "WHERE module_id = ?"
+        )
+        response = self.execute_query(sql, [module_id])
+        capability = {}
+        for i in len(response):
+            capability["id"] = response.get_int(i, "id")
+            capability["name"] = response.get_str(i, "name")
+            list_of_capabilities.append(json.dumps(capability))
+        return list_of_capabilities
+       
+    def get_server_owner_id(self, server_id):
+        sql = "SELECT" \
+              "    user_id" \
+              "FROM users_servers"\
+              "WHERE server_id = ?"
+        response = self.execute_query(sql, [server_id])
+        return response.get_int(0, "user_id")
 
+    def get_server_info(self, server_id):
+        sql = "SELECT" \
+              "    *" \
+              "FROM servers" \
+              "WHERE id = ?"
+        response = self.execute_query(sql, [server_id])
+        server_info = json()
+        server_info["id"] = response.get_int(0, "id")
+        server_info["name"] = response.get_str(0, "name")
+        server_info["token"] = response.get_str(0, "token")
+        return server_info
