@@ -6,7 +6,10 @@ import uvicorn
 import database_worker
 
 app = FastAPI()
-db = database_worker.Database()
+
+path_to_db = "Data/users_database.db"
+
+db = database_worker.Database(path_to_db)
 
 active_connections: Dict[str, WebSocket] = {}
 temp_servers: Dict[str, Dict] = {}
@@ -15,13 +18,18 @@ temp_servers: Dict[str, Dict] = {}
 async def get_home():
     return "Hello"
 
-@app.get("/api/auth")
-async def auth():
-    return 1
+@app.post("/api/auth")
+async def auth(login : str = Body(...), password : str = Body(...)):
+    status, id = db.check_auth(login, password)
+    if status:
+        return f"You have been autorized with id = {id}"
+    return "Incorrect login or password"
 
-@app.get("/api/registration")
-async def registration():
-    return 1
+@app.post("/api/registration")
+async def registration(login : str = Body(...), password : str = Body(...)):
+    db.add_user(login, password)
+    # Мб при создании чего-либо возвращать id созданной записи?
+    return "success"
 
 @app.get("/api/users/{user_id}/servers")
 async def show_servers(user_id: int):
@@ -31,9 +39,9 @@ async def show_servers(user_id: int):
 async def add_server(user_id: int, name : str = Body(...)):
     server_token = str(uuid.uuid4())
     temp_servers[server_token] = {"user_id" : user_id, "server_name" : name}
-    return {"server_token": server_token, "user_id": user_id}
+    return {"server_token": server_token}
 
-@app.post("/api/users/{user_id}/servers/{server_id}/delete")
+@app.delete("/api/users/{user_id}/servers/{server_id}/delete")
 async def delete_server(user_id : int, server_id: int):
     owner_id = db.get_server_owner_id(server_id)
     if owner_id != user_id:
@@ -48,25 +56,48 @@ async def delete_server(user_id : int, server_id: int):
             pass
         del active_connections[server_info["token"]]
     # Удаление из таблиц servers и users_servers
-    db.delete_server(server_id)
+    db.delete_server_from_tables(server_id)
     return True
 
 @app.get("/api/users/{user_id}/servers/{server_id}/modules")
-async def show_modules(user_id: int, server_id: str):
-    # Заглушка
-    return []
+async def show_modules(user_id: int, server_id: int):
+    return db.get_modules(server_id)
+
+@app.post("/api/users/{user_id}/servers/{server_id}/modules/add")
+async def add_module(server_id : int, name : str = Body(...), alias : str = Body(...), 
+                     mqtt_topic : str = Body(...), description : str = Body(...)):
+    db.add_module(server_id, name, alias, mqtt_topic, description)
+    return True
+
+@app.delete("/api/users/{user_id}/servers/{server_id}/modules/{module_id}/delete")
+async def delete_module(module_id : int):
+    db.delete_module_from_tables(module_id)
 
 @app.get("/api/users/{user_id}/servers/{server_id}/modules/{module_id}/capabilities")
 async def show_capabilities(user_id: int, server_id: str, module_id: str):
-    return []
+    return db.get_capabilities(module_id)
 
-@app.websocket("/ws/bind_server")
-async def websocket_endpoint(websocket: WebSocket, server_token: str = Body(...)):
+@app.post("/api/users/{user_id}/servers/{server_id}/modules/{module_id}/capabilities/add")
+async def add_capability(module_id : int, name : str = Body(...)):
+    db.add_capability(module_id, name)
+    return True
+
+@app.delete("/api/users/{user_id}/servers/{server_id}/modules/{module_id}/capabilities/{capability_id}/delete")
+async def delete_capability(capability_id : int):
+    db.delete_capability(capability_id)
+
+@app.post("/api/users/{user_id}/servers/{server_id}/modules/{module_id}/capabilities/{capability_id}/unbind")
+async def undind_module_capability(module_id : int, capability_id : int):
+    db.unbind_module_capability(module_id, capability_id)
+    return True
+
+@app.websocket("/ws/bind_server/{server_token}")
+async def websocket_endpoint(websocket: WebSocket, server_token: str):
     if server_token not in temp_servers:
         await websocket.close(code=1008, reason="Unknown server_id")
         return
 
-    db.add_server(temp_servers[server_token]["user_id"], temp_servers[server_token]["name"], server_token)
+    db.add_server(temp_servers[server_token]["user_id"], temp_servers[server_token]["server_name"], server_token)
     del temp_servers[server_token]
 
     await websocket.accept()
@@ -87,21 +118,21 @@ async def websocket_endpoint(websocket: WebSocket, server_token: str = Body(...)
             del active_connections[server_token]
 
         active_connections[server_token] = websocket
-        await websocket.send_text(json.dumps({"status": "ok", "message": "Authenticated"}))
+        await websocket.send_text(json.dumps({"type" : "info", "status": "ok", "message": "Authenticated"}))
 
         while True:
             message = await websocket.receive_text()
             print(f"Message from {server_token}: {message}")
             # Эхо (или обработать результат команды)d
-            await websocket.send_text(json.dumps({"echo": message}))
+            await websocket.send_text(json.dumps({"type" : "info", "echo": message}))
     except WebSocketDisconnect:
         pass
     finally:
         if server_token in active_connections:
             del active_connections[server_token]
 
-@app.post("/api/users/{user_id}/servers/{server_id}/command")
-async def send_command(user_id: int, server_id: int, command: dict = Body(...)):
+@app.post("/api/users/{user_id}/servers/{server_id}/modules/{module_id}/capability/{capbility_id}/send_command")
+async def send_command(user_id: int, server_id: int, module_id : int, capability_id : int):
 
     server_info = db.get_server_info(server_id)
     owner_id = db.get_server_owner_id(server_id)
@@ -111,6 +142,15 @@ async def send_command(user_id: int, server_id: int, command: dict = Body(...)):
     if not ws:
         raise HTTPException(status_code=404, detail="RPi not connected")
     try:
+        module_info = db.get_module_info(module_id)
+        capability_info = db.get_capability_info(capability_id)
+        command  =  {
+                        "type" : "command",
+                        "params" : {
+                            "mqtt_topic" : module_info["mqtt_topic"], 
+                            "payload" : capability_info["name"]
+                        }
+                    }
         await ws.send_text(json.dumps(command))
         return {"status": "sent", "command": command}
     except Exception as e:

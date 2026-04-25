@@ -33,8 +33,8 @@ public:
                                                const std::string& message,
                                                int qos)>;
 
-    RPiWebSocketClient(const std::string& token, const std::string& server_url, DataBase &_db)
-        : m_token(token), m_server_url(server_url), m_reconnect_delay(5), m_connected(false), db(_db) {
+    RPiWebSocketClient(const std::string& token, const std::string& server_url)
+        : m_token(token), m_server_url(server_url), m_reconnect_delay(5), m_connected(false) {
         
         m_client.init_asio();
         
@@ -101,47 +101,8 @@ private:
         
         try {
             json data = json::parse(payload);
-            std::string action = data["action"];
-            if(action == "send_command"){
-                long long module_id = data["params"]["module_id"];
-                json module_info = db.getModuleInfo(module_id);
-                m_mqtt_publish(module_info["mqtt_topic"], data["params"]["action"], 1);
-            }
-            else{
-                if (action == "get_modules"){
-                    std::string response = "";
-                    auto modules = db.getListOfModules();
-                    for (auto &&module : modules){
-                        response += module.dump();
-                    }
-                    send(response);
-                }
-                else if (action == "get_module_capabilities"){
-                    std::string response = "";
-                    long long module_id = data["params"]["module_id"];
-                    auto capabilities = db.getCapabilities(module_id);
-                    for (auto &&capabilitity : capabilities){
-                        response += capabilitity.dump();
-                    }
-                    send(response);
-                }
-                else if (action == "update_module"){
-                    db.updateModuleInfo(data["params"]["module_id"], data["params"]["name"], data["params"]["alias"]);
-                }
-                else if (action == "add_capability"){
-                    db.addCapability(data["params"]["module_type_id"], data["params"]["name"]);
-                }
-                else if (action == "delete_module"){
-                    db.deleteModuleFromTables(data["params"]["module_id"]);
-                }
-                else if (action == "delete_capability"){
-                    db.deleteCapabilityFromTable(data["params"]["capability_id"]);
-                }
-                else if (action == "unbind_capability"){
-                    db.unbindCapabilityInModule(data["params"]["module_id"], data["params"]["capability_id"]);
-                }
-                else std::cout << "Unknown type of command type" << std::endl;
-            }
+            if (data["type"] == "command")
+                m_mqtt_publish(data["params"]["mqtt_topic"], data["params"]["payload"], 1);
         }
         catch (const json::parse_error& e) {
             std::cout << "  (Обычное текстовое сообщение)" << std::endl;
@@ -193,7 +154,6 @@ private:
     connection_hdl m_hdl;
     int m_reconnect_delay;
     std::atomic<bool> m_connected;
-    DataBase db;
     CommandCallback m_mqtt_publish;
 };
 
@@ -212,7 +172,7 @@ int main() {
         return 1;
     }
     
-    std::string base_server_url = "ws://127.0.0.1:8000/ws/";
+    std::string base_server_url = "ws://127.0.0.1:8000/ws/bind_server/";
     
     auto client = std::make_unique<RPiWebSocketClient>(server_token, base_server_url);
     
