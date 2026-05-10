@@ -207,16 +207,6 @@ class Database(IDataBase):
             )
         self.execute_request(sql)
 
-    def create_servers_table(self):
-        sql = (
-            "CREATE TABLE servers ( "
-            "    id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "    name TEXT NOT NULL, "
-            "    token TEXT NOT NULL "
-            ");"
-        )
-        self.execute_request(sql)
-
     def create_users_servers_table(self):
         sql = (
             "CREATE TABLE users_servers ( "
@@ -229,14 +219,12 @@ class Database(IDataBase):
         )
         self.execute_request(sql)
 
-    def create_servers_modules_table(self):
+    def create_servers_table(self):
         sql = (
-            "CREATE TABLE servers_modules ( "
+            "CREATE TABLE servers ( "
             "    id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "    server_id INTEGER NOT NULL, "
-            "    module_id INTEGER NOT NULL, "
-            "    FOREIGN KEY (server_id) REFERENCES servers(id), "
-            "    FOREIGN KEY (module_id) REFERENCES modules(id) "
+            "    name TEXT NOT NULL, "
+            "    token TEXT NOT NULL "
             ");"
         )
         self.execute_request(sql)
@@ -245,19 +233,11 @@ class Database(IDataBase):
         sql = (
             "CREATE TABLE modules ( "
             "    id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "    server_id INTEGER NOT NULL,"
             "    name TEXT NOT NULL, "
             "    alias TEXT NOT NULL, "
             "    mqtt_topic TEXT NOT NULL, "
             "    description TEXT "
-            ");"
-        )
-        self.execute_request(sql)
-
-    def create_capabilities_table(self):
-        sql = (
-            "CREATE TABLE capabilities ( "
-            "    id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "    name TEXT NOT NULL "
             ");"
         )
         self.execute_request(sql)
@@ -270,6 +250,15 @@ class Database(IDataBase):
             "    capability_id INTEGER NOT NULL, "
             "    FOREIGN KEY (module_id) REFERENCES modules(id), "
             "    FOREIGN KEY (capability_id) REFERENCES capabilities(id) "
+            ");"
+        )
+        self.execute_request(sql)
+
+    def create_capabilities_table(self):
+        sql = (
+            "CREATE TABLE capabilities ( "
+            "    id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "    name TEXT NOT NULL "
             ");"
         )
         self.execute_request(sql)
@@ -290,10 +279,6 @@ class Database(IDataBase):
         sql = "DELETE FROM modules; "
         self.execute_request(sql)
     
-    def clear_servers_modules_table(self):
-        sql = "DELETE FROM servers_modules; "
-        self.execute_request(sql)
-
     def clear_capabilities_table(self):
         sql = "DELETE FROM capabilities; "
         self.execute_request(sql)
@@ -339,28 +324,10 @@ class Database(IDataBase):
                          mqtt_topic, description = ""):
         # Добавление в таблицу modules
         sql = (
-            "INSERT INTO modules(name, alias, mqtt_topic, description) " 
-            "VALUES (?, ?, ?, ?);"
+            "INSERT INTO modules(server_id, name, alias, mqtt_topic, description) " 
+            "VALUES (?, ?, ?, ?, ?);"
         )
         self.execute_request(sql, [name, alias, mqtt_topic, description])
-        sql = (
-            "SELECT " 
-            "    id " 
-            "FROM modules " 
-            "ORDER BY id DESC " 
-            "LIMIT 1;"
-        )
-        response = self.execute_query(sql)
-        module_id = response.get_int(0, "id")
-        # Добавление в сводную таблицу servers_modules
-        self.add_servers_modules(server_id, module_id)
-
-    def add_servers_modules(self, server_id, module_id):
-        sql = (
-            "INSERT INTO servers_modules(server_id, module_id) " 
-            "VALUES (?, ?);"
-        )
-        self.execute_request(sql, [server_id, module_id])
 
     def add_capability(self, module_id, name):
         # Проверка на уже существующие функции
@@ -406,14 +373,14 @@ class Database(IDataBase):
             "WHERE server_id = ?;"
         )
         self.execute_request(sql, [server_id])
+        # Удаление привязанных модулей
         sql = (
             "SELECT " 
-            "    module_id " 
-            "FROM servers_modules " 
+            "    id " 
+            "FROM modules " 
             "WHERE server_id = ?;"
         )
         response = self.execute_query(sql, [server_id])
-        # Удаление привязанных модулей
         for i in range(response.size()):
             module_id = response.get_int(i, "module_id")
             self.delete_module_from_tables(module_id)
@@ -422,16 +389,9 @@ class Database(IDataBase):
             "DELETE FROM servers " 
             "WHERE id = ?;"
         )
-        self.execute_request(sql, [server_id])
-        
+        self.execute_request(sql, [server_id])   
 
     def delete_module_from_tables(self, module_id):
-        # Удаление из сводной таблицы серверы-модули
-        sql = (
-            "DELETE FROM servers_modules " 
-            "WHERE module_id = ?;"
-        )
-        self.execute_request(sql, [module_id])
         # Удаление из сводной таблицы модули-возможности
         sql = (
             "DELETE FROM modules_capabilities " 
@@ -488,13 +448,12 @@ class Database(IDataBase):
         list_of_modules = []
         sql = (
             "SELECT " 
-            "    m.id, "
-            "    m.name, "
-            "    m.alias, "
-            "    m.mqtt_topic, "
-            "    m.description "
-            "FROM servers_modules sm "
-            "JOIN modules m ON sm.module_id = m.id "
+            "    id, "
+            "    name, "
+            "    alias, "
+            "    mqtt_topic, "
+            "    description "
+            "FROM modules "
             "WHERE server_id = ?;"
         )
         response = self.execute_query(sql, [server_id])
@@ -574,6 +533,7 @@ class Database(IDataBase):
         response = self.execute_query(sql, [module_id])
         module_info = {}
         module_info["id"] = response.get_int(0, "id")
+        module_info["server_id"] = response.get_int(0, "server_id")
         module_info["name"] = response.get_str(0, "name")
         module_info["alias"] = response.get_str(0, "alias")
         module_info["mqtt_topic"] = response.get_str(0, "mqtt_topic")
