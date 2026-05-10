@@ -192,76 +192,10 @@ void DataBase::rollback(){
 
 
 
-
-void DataBase::createModulesTable(){
-    
-    /**
-     * @brief Создание таблицы для хранения модулей
-     * @details name - имя модуля
-     *          alias - псевдоним модуля
-     *          Alias нужен для распознавания одинаковых модулей на одном сервере. Например,
-     *          у пользователя 2 умные розетки в квартире и чтобы их различать он назначает
-     *          alias, который при выводе списка модулей на сервере будет выводиться
-     *          справа от названия модуля в квадратных скобках (Умная розетка [Кухня]
-     *                                                          Умная розетка [Спальня])
-     *          mqtt_topic - топик для обработки пользовательских команд
-     */
-
-    executeRequest(R"(
-        CREATE TABLE modules (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            alias TEXT NOT NULL,
-            mqtt_topic TEXT NOT NULL
-        ); 
-    )");
-}
-
-void DataBase::createModulesAndCapabilitiesTable(){
-
-    /**
-     * @brief Создание таблицы для хранения модулей
-     * @details module_id - id модуля
-     *          alias - псевдоним модуля
-     *          Alias нужен для распознавания одинаковых модулей на одном сервере. Например,
-     *          у пользователя 2 умные розетки в квартире и чтобы их различать он назначает
-     *          alias, который при выводе списка модулей на сервере будет выводиться
-     *          справа от названия модуля в квадратных скобках (Умная розетка [Кухня]
-     *                                                          Умная розетка [Спальня])
-     *          mqtt_topic - топик для обработки пользовательских команд
-     */
-
-    executeRequest(R"(
-        CREATE TABLE modules_capabilities (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            module_id INTEGER NOT NULL,
-            capability_id INTEGER NOT NULL,
-            FOREIGN KEY (module_id) REFERENCES modules(id),
-            FOREIGN KEY (capability_id) REFERENCES capabilities(id)
-        ); 
-    )");
-
-}
-
-void DataBase::createCapabilitiesTable(){
-
-    /**
-     * @brief Создание таблицы для хранения функий удаленного доступа к модулю
-     * @details name - имя функции
-     */
-
-    executeRequest(R"(
-        CREATE TABLE capabilities (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL
-        );   
-    )");
-}
-
 void DataBase::createTelemetryTable(){
 
     /**
-     * @brief Создание таблицы для хранения функий удаленного доступа к модулю
+     * @brief Создание таблицы для хранения показаний датчиков
      * @details module_id - id модуля 
      * @details param_name - название параметра
      * @details param_value - значение параметра
@@ -274,42 +208,32 @@ void DataBase::createTelemetryTable(){
             module_id INTEGER NOT NULL,
             param_name TEXT NOT NULL,
             param_value REAL NOT NULL,
-            timestamp INTEGER NOT NULL,
-            FOREIGN KEY (module_id) REFERENCES module_id(id)
+            meas_unit TEXT,
+            timestamp INTEGER NOT NULL
         );   
     )");
 }
 
-void DataBase::deleteModulesTable(){
-    
+void DataBase::createModuleParamsTable(){
+
     /**
-     * @brief Удаление таблицы с модулями
+     * @brief Создание таблицы для хранения параметров модуля для самодиагностики
+     * @details module_id - id модуля 
+     * @details input_amperage - входной ток
+     * @details input_voltage - входное напряжение
+     * @details module_temp - температура модуля
+     * @details timestamp - временная метка замера параметров модуля
      */
 
     executeRequest(R"(
-        DROP TABLE modules;    
-    )");
-}
-
-void DataBase::deleteModulesAndCapabilities(){
-
-    /**
-     * @brief Удаление таблицы с модулями и привязанными к ним возможностями
-     */
-
-    executeRequest(R"(
-        DROP TABLE modules_capabilities;
-    )");
-}
-
-void DataBase::deleteCapabilitiesTable(){
-
-    /**
-     * @brief Удаление таблицы с возможностями
-     */
-
-    executeRequest(R"(
-        DROP TABLE capabilities;    
+        CREATE TABLE modules_params (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            module_id INTEGER NOT NULL,
+            input_amperage TEXT NOT NULL,
+            input_voltage REAL NOT NULL,
+            module_temp TEXT,
+            timestamp INTEGER NOT NULL
+        );   
     )");
 }
 
@@ -324,104 +248,14 @@ void DataBase::deleteTelemetryTable(){
     )");
 }
 
-void DataBase::deleteModuleFromTables(long long module_id){
+void DataBase::deleteModuleParamsTable(){
 
     /**
-     * @brief Удаление модуля из БД
-     * @param module_id id модуля, который необходимо удалить
-     */
-   
-    // Удаление из таблицы модулей
-    std::string sql = R"(
-        DELETE FROM modules
-        WHERE id = ?
-    )";
-    executeRequest(sql, {module_id});
-
-}
-
-void DataBase::deleteCapabilityFromTable(long long capability_id){
-    
-    /**
-     * @brief Удаление возможности из БД
-     * @param capability_id id возможности, которую необходимо удалить
-     */
-   
-    // Удаление из таблицы возможностей
-    std::string sql = R"(
-        DELETE FROM capabilities
-        WHERE id = ?
-    )";
-    executeRequest(sql, {capability_id});
-
-}
-
-void DataBase::unbindCapabilityInModule(long long module_id, long long capability_id){
-
-    /**
-     * @brief отвязка возможности у модуля
-     * @param module_id id модуля, у которого необходимо отвязать возможность
-     * @param capability_id id возможности, которую необходимо отвязать
-     */
-   
-    // Удаление из таблицы возможностей
-    std::string sql = R"(
-        DELETE FROM modules_capabilities
-        WHERE module_id = ? AND capability_id = ?
-    )";
-    executeRequest(sql, {module_id, capability_id});
-
-}
-
-void DataBase::updateModuleInfo(long long module_id, const std::string &name, const std::string &alias){
-
-    /**
-     * @brief Обновление полей модуля
-     * @param module_id id модуля, который необходимо обновить
-     * @param name имя, которое будет установлено
-     * @param alias псевдоним, который будет установлен
-     */    
-
-    std::string sql = R"(
-        UPDATE modules
-        SET name = ?, alias = ?
-        WHERE id = ?
-    )";
-    executeRequest(sql, {name, alias, module_id});
-}
-
-void DataBase::clearModulesTable()
-{
-
-    /**
-     * @brief Очистка таблицы модулей с сохранением структуры столбцов
+     * @brief Удаление таблицы с параметрами модуля
      */
 
     executeRequest(R"(
-        DELETE FROM modules;
-    )");
-}
-
-void DataBase::clearModulesAndCapabilities(){
-
-    /**
-     * @brief Очистка сводной таблицы модулей и их функционала с сохранением структуры столбцов
-     */
-
-    executeRequest(R"(
-        DELETE FROM modules_capabilities;
-    )");
-    
-}
-
-void DataBase::clearCapabilitiesTable(){
-
-    /**
-     * @brief Очистка таблицы возможностей с сохранением структуры столбцов
-     */
-
-    executeRequest(R"(
-        DELETE FROM capabilities;
+        DROP TABLE modules_params;
     )");
 }
 
@@ -436,75 +270,19 @@ void DataBase::clearTelemetryTable(){
     )");
 }
 
-long long DataBase::addModule(const std::string& name, const std::string& alias, 
-                              const std::string& mqtt_topic){
+void DataBase::clearModuleParamsTable(){
 
     /**
-     * @brief Добавление модуля 
-     * @param name имя модуля
-     * @param alias псевдоним для добавляемого модуля, чтобы различать одинаковые по
-     *              типу модули
-     * @param mqtt_topic mqtt топик для обработки удаленных пользовательских команд
+     * @brief Очистка таблицы с параметрами модулей с сохранением структуры столбцов
      */
 
-    // Добавление в таблицу модулей
-    std::string sql = R"(
-        INSERT INTO modules(name, alias, mqtt_topic)
-        VALUES (?, ?, ?)
-    )";
-    executeRequest(sql, {name, alias, mqtt_topic});
-
-    // Получение id только что добавленного модуля
-    sql = R"(
-        SELECT 
-            id
-        FROM modules 
-        ORDER BY id DESC 
-        LIMIT 1;
-    )";
-    QueryResult response = executeQuery(sql);
-    long long module_id = response.get<long long>(0, "id");
-
-    return module_id;
-}
-
-
-void DataBase::addCapability(long long module_id, const std::string &name){
-
-    /**
-     * @brief Добавление устройства 
-     * @param module_id id модуля, к которому подвязывается добавляемая возможность
-     * @param name имя возможности
-    */
-
-    // Добавление в таблицу возможностей
-    std::string sql = R"(
-        INSERT INTO capabilities(name)
-        VALUES (?)
-    )";
-    executeRequest(sql, {name});
-
-    // Получение id только что добавленной возможности
-    sql = R"(
-        SELECT 
-            id
-        FROM capabilities 
-        ORDER BY id DESC 
-        LIMIT 1;
-    )";
-    QueryResult response = executeQuery(sql);
-    long long capability_id = response.get<long long>(0, "id");
-
-    // Добавление в сводную таблицу модули-возможности
-    sql = R"(
-        INSERT INTO modules_capabilities(module_id, capability_id)
-        VALUES (?, ?)
-    )";
-    executeRequest(sql, {module_id, capability_id});  
+    executeRequest(R"(
+        DELETE FROM modules_params;
+    )");
 }
 
 void DataBase::addTelemetry(long long module_id, const std::string &param_name, 
-                            double param_value, int timestamp){
+                            double param_value, int timestamp, const std::string& meas_unit){
           
     /**
      * @brief Добавление телеметрии
@@ -516,83 +294,32 @@ void DataBase::addTelemetry(long long module_id, const std::string &param_name,
 
     // Добавление в таблицу с телеметрией
     std::string sql = R"(
-        INSERT INTO telemetry(module_id, param_name, param_value, timestamp)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO telemetry(module_id, param_name, param_value, meas_unit, timestamp)
+        VALUES (?, ?, ?, ?, ?)
     )";
-    executeRequest(sql, {module_id, param_name, param_value, timestamp});
+    executeRequest(sql, {module_id, param_name, param_value, meas_unit, timestamp});
 }
 
-std::vector<json> DataBase::getListOfModules()
-{
-    std::vector<json> list_of_modules;
+void DataBase::addModuleParams(long long module_id, double input_amperage, double input_voltage, double module_temp, int timestamp){
+
+    /**
+     * @brief Добавление параметров модуля для самодиагностики
+     * @param module_id - id модуля 
+     * @param input_amperage - входной ток
+     * @param input_voltage - входное напряжение
+     * @param module_temp - температура модуля
+     * @param timestamp - временная метка замера параметров модуля
+    */
+
+    // Добавление в таблицу с телеметрией
     std::string sql = R"(
-        SELECT 
-            m.id as module_id,
-            m.name as module_name,
-            m.alias as module_alias,
-            m.mqtt_topic as module_mqtt_topic,
-        FROM modules m
+        INSERT INTO telemetry(module_id, input_amperage, input_voltage, module_temp, timestamp)
+        VALUES (?, ?, ?, ?, ?)
     )";
-
-    QueryResult response = executeQuery(sql);
-    json module_;
-    
-    for (size_t i = 0; i < response.rows.size(); i++){
-        module_["id"] = response.get<long long>(i, "module_id");
-        module_["name"] = response.get<std::string>(i, "module_name");
-        module_["alias"] = response.get<std::string>(i, "module_alias");
-        module_["mqtt_topic"] = response.get<std::string>(i, "module_mqtt_topic");
-        list_of_modules.push_back(module_);
-    }
-    return list_of_modules;
-}
-
-std::vector<json> DataBase::getCapabilities(long long module_id)
-{
-    std::vector<json> capabilities;
-    
-    std::string sql = R"(
-        SELECT 
-            c.id,
-            c.name
-        FROM modules_capabilities mc
-        JOIN capabilities c ON mc.capability_id = c.id
-        WHERE module_id = ?;
-    )";
-
-    QueryResult response = executeQuery(sql, {module_id});
-
-    json cur_capability;
-
-    for (int i = 0; i < response.size(); i++){
-        cur_capability["id"] = response.get<long long>(i, "id");
-        cur_capability["name"] = response.get<std::string>(i, "name");
-        capabilities.push_back(cur_capability);
-    }
-    return capabilities;
-}
-
-json DataBase::getModuleInfo(long long module_id){
-
-    std::string sql = R"(
-        SELECT 
-            m.name,
-            m.alias,
-            m.mqtt_topic,
-        FROM modules m
-        WHERE m.id = ?
-    )";
-
-    QueryResult response = executeQuery(sql, {module_id});
-    json module_info;
-    module_info["name"] = response.get<std::string>(0, "name");
-    module_info["alias"] = response.get<std::string>(0, "alias");
-    module_info["mqtt_topic"] = response.get<std::string>(0, "mqtt_topic");
-    return module_info;
+    executeRequest(sql, {module_id, input_amperage, input_voltage, module_temp, timestamp});
 }
 
 /// @brief Получение значений param_name параметра с module_id модуля за последние time_interval минут
-
 std::vector<double> DataBase::getTelemtry(long long module_id, const std::string &param_name, int time_interval)
 {
     std::vector<double> telemetry;
@@ -613,4 +340,9 @@ std::vector<double> DataBase::getTelemtry(long long module_id, const std::string
     }
     
     return telemetry;
+}
+
+void DataBase::deleteTableByName(const std::string &name){
+    std::string sql = "DROP TABLE " + name;
+    executeRequest(sql);
 }

@@ -56,66 +56,24 @@ public:
 
     void commit();
     void rollback();
-    
 
-
-    /////////////////СОЗДАНИЕ ТАБЛИЦ ОСНОВНЫХ СУЩНОСТЕЙ И ИХ ОТНОШЕНИЙ/////////////////  
-    void createModulesTable();
-    void createModulesAndCapabilitiesTable();
-    void createCapabilitiesTable();
     void createTelemetryTable();
-    ///////////////////////////////////////////////////////////////////////////////////
+    void createModuleParamsTable();
 
-
-
-    //////////////////////////////////УДАЛЕНИЕ ТАБЛИЦ//////////////////////////////////
-    void deleteModulesTable();
-    void deleteModulesAndCapabilities();
-    void deleteCapabilitiesTable();
     void deleteTelemetryTable();
-    ///////////////////////////////////////////////////////////////////////////////////
+    void deleteModuleParamsTable();
 
-
-
-    ////////////////////////////УДАЛЕНИЕ КОНКРЕТНЫХ ЗАПИСЕЙ////////////////////////////
-    void deleteModuleFromTables(long long module_id);
-    void deleteCapabilityFromTable(long long capability_id);
-    void unbindCapabilityInModule(long long module_id, long long capability_id);
-    ///////////////////////////////////////////////////////////////////////////////////
-
-
-
-    ////////////////////////////////ОБНОВЛЕНИЕ ЗАПИСЕЙ/////////////////////////////////
-    void updateModuleInfo(long long module_id, const std::string& name, 
-                          const std::string& alias);
-    ///////////////////////////////////////////////////////////////////////////////////
-
-
-    //////////////////////////////////ОЧИСТКА ТАБЛИЦ///////////////////////////////////;
-    void clearModulesTable();              
-    void clearModulesAndCapabilities();
-    void clearCapabilitiesTable();
     void clearTelemetryTable();
-    ///////////////////////////////////////////////////////////////////////////////////
+    void clearModuleParamsTable();
 
-
-
-    ///////////////////////////ЗАПОЛНЕНИЕ ТАБЛИЦ ЗНАЧЕНИЯМИ////////////////////////////
-    long long addModule(const std::string& name, const std::string& alias, 
-                        const std::string& mqtt_topic);
-    void addCapability(long long module_id, const std::string& name);
     void addTelemetry(long long module_id, const std::string& param_name, 
-                      double param_value, int timestamp);
-    ///////////////////////////////////////////////////////////////////////////////////
+                      double param_value, int timestamp, const std::string& meas_unit = "");
+    void addModuleParams(long long module_id, double input_amperage, 
+                         double input_voltage, double module_temp, int timestamp);
 
-
-
-    ////////////////////////////ПОЛУЧЕНИЕ ДАННЫХ ИЗ ТАБЛИЦ/////////////////////////////
-    std::vector<json> getListOfModules();
-    std::vector<json> getCapabilities(long long module_id);
-    json getModuleInfo(long long module_id);
     std::vector<double> getTelemtry(long long module_id, const std::string& param_name, 
                                   int time_interval);
-    ///////////////////////////////////////////////////////////////////////////////////
+
+    void deleteTableByName(const std::string& name);
 
 };
