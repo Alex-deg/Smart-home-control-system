@@ -327,7 +327,7 @@ class Database(IDataBase):
             "INSERT INTO modules(server_id, name, alias, mqtt_topic, description) " 
             "VALUES (?, ?, ?, ?, ?);"
         )
-        self.execute_request(sql, [name, alias, mqtt_topic, description])
+        self.execute_request(sql, [server_id, name, alias, mqtt_topic, description])
 
     def add_capability(self, module_id, name):
         # Проверка на уже существующие функции

@@ -15,9 +15,11 @@ class MQTTClient {
 public:
 
     enum Topics{
-        DB_SAVE = 0,
+        DB_SAVE_TELEMETRY = 0,
+        DB_SAVE_PARAMS, 
         DB_GET,
-        GUI_SEND
+        GUI_SEND,
+        TOPICS_N
     };
 
     using MessageCallback = std::function<void(const std::string& topic, 

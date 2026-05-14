@@ -160,7 +160,8 @@ void MQTTClient::on_connect(struct mosquitto* mosq, void* obj, int rc) {
         client->connected_ = true;
                 
         // Подписываемся на системные топики
-        client->subscribe("rpi/database/save", 1);     // Для сохранения данных с датчиков в БД (esp отдает данные серверу)
+        client->subscribe("rpi/database/save/telemetry", 1);     // Для сохранения данных с датчиков в БД (esp отдает данные серверу)
+        client->subscribe("rpi/database/save/params", 1);     // Для сохранения данных с датчиков в БД (esp отдает данные серверу)
         client->subscribe("rpi/database/get", 1);      // Для получения данных с БД (esp зпрашивает данные у сервера)
         client->subscribe("rpi/gui/send_message", 1);  // Для отправки ответа пользователю на его команду (esp отдает данные серверу)
                 
@@ -281,8 +282,10 @@ void MQTTClient::saveMessageToDB(const std::string& topic,
 
 MQTTClient::Topics MQTTClient::convertStringTopicToEnum(const std::string &topic)
 {
-    if (topic == "rpi/database/save")
-        return Topics::DB_SAVE;
+    if (topic == "rpi/database/save/telemetry")
+        return Topics::DB_SAVE_TELEMETRY;
+    if (topic == "rpi/database/save/params")
+        return Topics::DB_SAVE_PARAMS;    
     if (topic == "rpi/database/get")
         return Topics::DB_GET;
     if (topic == "rpi/gui/send_message")
@@ -339,9 +342,17 @@ void MQTTClient::processIncomingMessage(const std::string& topic,
     Topics t =convertStringTopicToEnum(topic);
     switch (t)
     {
-    case Topics::DB_SAVE:
+    case Topics::DB_SAVE_TELEMETRY:
         try{
-            db_.addTelemetry(data["module_id"], data["param_name"], data["param_value"], time(NULL));
+            db_.addTelemetry(data["module_id"], data["param_name"], data["param_value"], time(NULL), data["meas_unit"]);
+        }
+        catch(std::runtime_error &err){
+            std::cerr << err.what() << std::endl;
+        }
+        break;
+    case Topics::DB_SAVE_PARAMS:
+        try{
+            db_.addModuleParams(data["module_id"], data["input_amperege"], data["input_voltage"], data["module_temp"], time(NULL));
         }
         catch(std::runtime_error &err){
             std::cerr << err.what() << std::endl;

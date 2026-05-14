@@ -15,6 +15,9 @@ void ws_server_thr(std::shared_ptr<MQTTClient> mqtt_client){
         std::cout << "Токен пуст!" << std::endl;
         return;
     }
+    else{
+        std::cout << "TOKEN = " << server_token << std::endl;
+    }
     std::string base_server_url = "ws://127.0.0.1:8000/ws/bind_server/";
     auto client = std::make_unique<RPiWebSocketClient>(server_token, base_server_url);
     client->set_on_command([mqtt_client](const std::string &topic, const std::string &payload, int qos){
