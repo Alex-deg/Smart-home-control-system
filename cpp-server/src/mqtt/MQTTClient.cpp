@@ -162,8 +162,8 @@ void MQTTClient::on_connect(struct mosquitto* mosq, void* obj, int rc) {
         // Подписываемся на системные топики
         client->subscribe("rpi/database/save/telemetry", 1);     // Для сохранения данных с датчиков в БД (esp отдает данные серверу)
         client->subscribe("rpi/database/save/params", 1);     // Для сохранения данных с датчиков в БД (esp отдает данные серверу)
-        client->subscribe("rpi/database/get", 1);      // Для получения данных с БД (esp зпрашивает данные у сервера)
-        client->subscribe("rpi/gui/send_message", 1);  // Для отправки ответа пользователю на его команду (esp отдает данные серверу)
+        client->subscribe("rpi/database/get/telemetry", 1);      // Для получения данных с БД (esp зпрашивает данные у сервера)
+        client->subscribe("rpi/send_message/remote", 1);  // Для отправки ответа пользователю на его команду (esp отдает данные серверу)
                 
         // Вызываем пользовательский callback
         if (client->on_connect_callback_) {
@@ -286,10 +286,10 @@ MQTTClient::Topics MQTTClient::convertStringTopicToEnum(const std::string &topic
         return Topics::DB_SAVE_TELEMETRY;
     if (topic == "rpi/database/save/params")
         return Topics::DB_SAVE_PARAMS;    
-    if (topic == "rpi/database/get")
-        return Topics::DB_GET;
-    if (topic == "rpi/gui/send_message")
-        return Topics::GUI_SEND;
+    if (topic == "rpi/database/get/telemetry")
+        return Topics::DB_GET_TELEMETRY;
+    if (topic == "rpi/send_message/remote")
+        return Topics::REMOTE_SEND;
 }
 
 void MQTTClient::startLoop() {
@@ -339,7 +339,7 @@ void MQTTClient::processIncomingMessage(const std::string& topic,
                                        const std::string& payload) {
 
     json data = json::parse(payload);
-    Topics t =convertStringTopicToEnum(topic);
+    Topics t = convertStringTopicToEnum(topic);
     switch (t)
     {
     case Topics::DB_SAVE_TELEMETRY:
@@ -358,7 +358,7 @@ void MQTTClient::processIncomingMessage(const std::string& topic,
             std::cerr << err.what() << std::endl;
         }
         break;
-    case Topics::DB_GET:
+    case Topics::DB_GET_TELEMETRY:
         try{
             std::vector<double> values = db_.getTelemtry(data["module_id"], data["param_name"], data["time_interval"]);
             std::stringstream ss;
@@ -370,9 +370,12 @@ void MQTTClient::processIncomingMessage(const std::string& topic,
             std::cerr << err.what() << std::endl;
         }
         break;
-    case Topics::GUI_SEND:
+    case Topics::REMOTE_SEND:
         try{
-            // Отправка ответа клиенту
+            json response;
+            response["request_id"] = data["request_id"];
+            response["payload"] = data["payload"];
+            websocket_send(response.dump());
         }
         catch(std::runtime_error &err){
             std::cerr << err.what() << std::endl;

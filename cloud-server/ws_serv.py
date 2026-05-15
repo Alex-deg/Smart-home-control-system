@@ -4,6 +4,7 @@ import uuid
 import json
 import uvicorn
 import database_worker
+import asyncio
 
 app = FastAPI()
 
@@ -13,6 +14,7 @@ db = database_worker.Database(path_to_db)
 
 active_connections: Dict[str, WebSocket] = {}
 temp_servers: Dict[str, Dict] = {}
+pending_requests: Dict[str, asyncio.Future] = {}
 
 @app.get("/")
 async def get_home():
@@ -91,6 +93,46 @@ async def undind_module_capability(module_id : int, capability_id : int):
     db.unbind_module_capability(module_id, capability_id)
     return True
 
+@app.post("/api/users/{user_id}/servers/{server_id}/modules/{module_id}/capability/{capbility_id}/send_command")
+async def send_command(user_id: int, server_id: int, module_id : int, capability_id : int):
+
+    server_info = db.get_server_info(server_id)
+    owner_id = db.get_server_owner_id(server_id)
+    if owner_id != user_id:
+        raise HTTPException(status_code=403, detail="Not owned")
+    print(server_info)
+    print(active_connections)
+    ws = active_connections.get(server_info["token"])
+    if not ws:
+        raise HTTPException(status_code=404, detail="RPi not connected")
+    try:
+        module_info = db.get_module_info(module_id)
+        capability_info = db.get_capability_info(capability_id)
+
+        request_id = str(uuid.uuid4())
+        future = asyncio.Future()
+        pending_requests[request_id] = future
+
+        command  =  {
+                        "type" : "command",
+                        "request_id" : request_id,
+                        "params" : {
+                            "mqtt_topic" : module_info["mqtt_topic"], 
+                            "payload" : capability_info["name"]
+                        }
+                    }
+        await ws.send_text(json.dumps(command))
+        try:
+            # мб задать таймаут переменной
+            response = await asyncio.wait_for(future, timeout=10.0)
+            return {"status": "ok", "result": response}
+        except asyncio.TimeoutError:
+            raise HTTPException(status_code=408, detail="Request timeout")
+        finally:
+            pending_requests.pop(request_id, None)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.websocket("/ws/bind_server/{server_token}")
 async def websocket_endpoint(websocket: WebSocket, server_token: str):
     if server_token not in temp_servers:
@@ -131,32 +173,28 @@ async def websocket_endpoint(websocket: WebSocket, server_token: str):
         if server_token in active_connections:
             del active_connections[server_token]
 
-@app.post("/api/users/{user_id}/servers/{server_id}/modules/{module_id}/capability/{capbility_id}/send_command")
-async def send_command(user_id: int, server_id: int, module_id : int, capability_id : int):
-
-    server_info = db.get_server_info(server_id)
-    owner_id = db.get_server_owner_id(server_id)
-    if owner_id != user_id:
-        raise HTTPException(status_code=403, detail="Not owned")
-    print(server_info)
-    print(active_connections)
-    ws = active_connections.get(server_info["token"])
-    if not ws:
-        raise HTTPException(status_code=404, detail="RPi not connected")
+@app.websocket("/ws/{token}")
+async def websocket_handler(websocket: WebSocket, token: str):
+    await websocket.accept()
+    active_connections[token] = websocket
+    
     try:
-        module_info = db.get_module_info(module_id)
-        capability_info = db.get_capability_info(capability_id)
-        command  =  {
-                        "type" : "command",
-                        "params" : {
-                            "mqtt_topic" : module_info["mqtt_topic"], 
-                            "payload" : capability_info["name"]
-                        }
-                    }
-        await ws.send_text(json.dumps(command))
-        return {"status": "sent", "command": command}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        while True:
+            data = await websocket.receive_text()
+            message = json.loads(data)
+            
+            if "request_id" in message:
+                request_id = message["request_id"]
+                if request_id in pending_requests:
+                    pending_requests[request_id].set_result(message["payload"])
+                else:
+                    print(f"Unknown request_id: {request_id}")
+                
+    except WebSocketDisconnect:
+        pass
+    finally:
+        del active_connections[token]
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

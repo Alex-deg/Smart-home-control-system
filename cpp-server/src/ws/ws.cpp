@@ -101,8 +101,11 @@ private:
         
         try {
             json data = json::parse(payload);
+            json payload;
+            payload["request_id"] = data["request_id"];
+            payload["payload"] = data["params"]["payload"];
             if (data["type"] == "command")
-                m_mqtt_publish(data["params"]["mqtt_topic"], data["params"]["payload"], 1);
+                m_mqtt_publish(data["params"]["mqtt_topic"], payload.dump(), 1);
         }
         catch (const json::parse_error& e) {
             std::cout << "  (Обычное текстовое сообщение)" << std::endl;
