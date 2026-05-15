@@ -34,18 +34,8 @@ crow::response API::getTelemetry(long long module_id, const std::string &param_n
 void API::setupRoutes()
 {
 
-    CROW_ROUTE(app, "/api/database/telemetry")
-    ([this](const crow::request& req){
-        auto json = crow::json::load(req.body);
-        
-        if (!json || !json.has("module_id") || !json.has("param_name") || !json.has("time_interval")) {
-            return crow::response(400, "Invalid JSON or missing fields");
-        }
-        
-        long long module_id = json["module_id"].i();
-        std::string param_name = json["param_name"].s();
-        long long time_interval = json["time_interval"].i();
-        
+    CROW_ROUTE(app, "/api/database/telemetry/<int>/<string>/<int>")
+    ([this](long long module_id, std::string param_name, long long time_interval){
         return getTelemetry(module_id, param_name, time_interval);
     });
 
