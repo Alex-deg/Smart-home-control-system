@@ -11,6 +11,7 @@ set(
     HEADER
     ./src/database/DataBase.h
     ./src/mqtt/MQTTClient.h
+    ./src/api/api.h
 )
 
 set(
@@ -19,6 +20,7 @@ set(
     ./src/main.cpp
     ./src/ws/ws.cpp
     ./src/mqtt/MQTTClient.cpp
+    ./src/api/api.cpp
 )
 
 find_package(SQLite3 REQUIRED)
