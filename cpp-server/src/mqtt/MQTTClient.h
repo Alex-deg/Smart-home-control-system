@@ -17,13 +17,15 @@ public:
     enum Topics{
         DB_SAVE_TELEMETRY = 0,
         DB_SAVE_PARAMS, 
-        DB_GET,
-        GUI_SEND,
+        DB_GET_TELEMETRY,
+        REMOTE_SEND,
         TOPICS_N
     };
 
     using MessageCallback = std::function<void(const std::string& topic, 
                                                const std::string& payload)>;
+    
+    using SendCallback = std::function<void(const std::string& message)>;
 
     explicit MQTTClient(DataBase& db);
     ~MQTTClient();
@@ -57,6 +59,10 @@ public:
     void processIncomingMessage(const std::string& topic, 
                                 const std::string& payload);
     void sendDeviceCommand(int device_id, const std::string& command);
+
+    void setSendCallback(SendCallback cb) {
+        websocket_send = cb;
+    }
     
 private:
     // Callback'и Mosquitto
@@ -101,4 +107,5 @@ private:
     std::thread loop_thread_;
     std::mutex loop_mutex_;
     std::condition_variable loop_cv_;   
+    SendCallback websocket_send;
 };
