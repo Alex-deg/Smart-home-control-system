@@ -44,6 +44,12 @@ int main(){
 
     std::thread wsThread(ws_server_thr, mqtt);
 
+    API api(db);
+    std::thread api_thread([&api]() {
+        std::cout << "Starting HTTP API server..." << std::endl;
+        api.run(); 
+    });
+
     while (true) {
         if (!mqtt->isConnected()) {
             std::cout << "Mqtt connection is lost..." << std::endl;
@@ -54,6 +60,8 @@ int main(){
 
     if(wsThread.joinable())
         wsThread.join();
+    if (api_thread.joinable())
+        api_thread.join();
     
     mqtt->stopLoop();
 

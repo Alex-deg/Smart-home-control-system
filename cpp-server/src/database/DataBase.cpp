@@ -320,23 +320,29 @@ void DataBase::addModuleParams(long long module_id, double input_amperage, doubl
 }
 
 /// @brief Получение значений param_name параметра с module_id модуля за последние time_interval минут
-std::vector<double> DataBase::getTelemtry(long long module_id, const std::string &param_name, int time_interval)
+std::vector<json> DataBase::getTelemtry(long long module_id, const std::string &param_name, int time_interval)
 {
-    std::vector<double> telemetry;
+    std::vector<json> telemetry;
 
-    int start_time = time(NULL) - time_interval * 60;
+    long long start_time = time(NULL) - time_interval * 60;
 
     std::string sql = R"(
         SELECT
-            param_value
+            param_value,
+            timestamp,
+            meas_unit
         FROM telemetry
         WHERE module_id = ? AND param_name = ? AND timestamp >= ?
     )";
 
-    QueryResult response = executeQuery(sql, {module_id, param_name, time_interval});
+    json cur_tel;
+    QueryResult response = executeQuery(sql, {module_id, param_name, start_time});
 
     for (int i = 0; i < response.size(); i++){
-        telemetry.push_back(response.get<double>(i, "param_value"));
+        cur_tel["value"] = response.get<double>(i, "param_value");
+        cur_tel["timestamp"] = response.get<long long>(i, "timestamp");
+        cur_tel["meas_unit"] = response.get<std::string>(i, "meas_unit");
+        telemetry.push_back(cur_tel);
     }
     
     return telemetry;
