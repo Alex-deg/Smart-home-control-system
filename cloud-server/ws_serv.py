@@ -163,38 +163,19 @@ async def websocket_endpoint(websocket: WebSocket, server_token: str):
         await websocket.send_text(json.dumps({"type" : "info", "status": "ok", "message": "Authenticated"}))
 
         while True:
-            message = await websocket.receive_text()
-            print(f"Message from {server_token}: {message}")
-            # Эхо (или обработать результат команды)d
-            await websocket.send_text(json.dumps({"type" : "info", "echo": message}))
-    except WebSocketDisconnect:
-        pass
-    finally:
-        if server_token in active_connections:
-            del active_connections[server_token]
-
-@app.websocket("/ws/{token}")
-async def websocket_handler(websocket: WebSocket, token: str):
-    await websocket.accept()
-    active_connections[token] = websocket
-    
-    try:
-        while True:
             data = await websocket.receive_text()
             message = json.loads(data)
-            
             if "request_id" in message:
                 request_id = message["request_id"]
                 if request_id in pending_requests:
                     pending_requests[request_id].set_result(message["payload"])
                 else:
                     print(f"Unknown request_id: {request_id}")
-                
     except WebSocketDisconnect:
         pass
     finally:
-        del active_connections[token]
-
+        if server_token in active_connections:
+            del active_connections[server_token]
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
