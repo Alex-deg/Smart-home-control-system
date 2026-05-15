@@ -319,7 +319,7 @@ void DataBase::addModuleParams(long long module_id, double input_amperage, doubl
     executeRequest(sql, {module_id, input_amperage, input_voltage, module_temp, timestamp});
 }
 
-/// @brief Получение значений param_name параметра с module_id модуля за последние time_interval минут
+/// @brief Получение значений param_name параметра с module_id модуля за последние time_interval МИНУТ
 std::vector<json> DataBase::getTelemtry(long long module_id, const std::string &param_name, int time_interval)
 {
     std::vector<json> telemetry;
@@ -346,6 +346,31 @@ std::vector<json> DataBase::getTelemtry(long long module_id, const std::string &
     }
     
     return telemetry;
+}
+
+/// @brief Получение параметров module_id модуля за последние time_interval ЧАСОВ
+std::vector<json> DataBase::getModuleParams(long long module_id, int time_interval)
+{
+    std::vector<json> moduleParams;
+
+    long long start_time = time(NULL) - time_interval * 60 * 60;
+
+    std::string sql = R"(
+        SELECT
+            *
+        FROM modules_params
+        WHERE module_id = ? AND timestamp >= ?
+    )";
+    QueryResult response = executeQuery(sql, {module_id, start_time});
+    json curParams;
+    for(int i = 0; i < response.size(); i++){
+        curParams["input_amperage"] = response.get<double>(i, "input_amperage");
+        curParams["input_voltage"] = response.get<double>(i, "input_voltage");
+        curParams["module_temp"] = response.get<double>(i, "module_temp");
+        curParams["timestamp"] = response.get<double>(i, "timestamp");
+        moduleParams.push_back(curParams);
+    }
+    return moduleParams;
 }
 
 void DataBase::deleteTableByName(const std::string &name){

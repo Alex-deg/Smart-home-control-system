@@ -73,7 +73,7 @@ public:
 
     std::vector<json> getTelemtry(long long module_id, const std::string& param_name, 
                                   int time_interval);
-
+    std::vector<json> getModuleParams(long long module_id, int time_interval);
     void deleteTableByName(const std::string& name);
 
 };
