@@ -324,7 +324,7 @@ std::vector<json> DataBase::getTelemtry(long long module_id, const std::string &
 {
     std::vector<json> telemetry;
 
-    int start_time = time(NULL) - time_interval * 60;
+    long long start_time = time(NULL) - time_interval * 60;
 
     std::string sql = R"(
         SELECT
@@ -336,7 +336,7 @@ std::vector<json> DataBase::getTelemtry(long long module_id, const std::string &
     )";
 
     json cur_tel;
-    QueryResult response = executeQuery(sql, {module_id, param_name, time_interval});
+    QueryResult response = executeQuery(sql, {module_id, param_name, start_time});
 
     for (int i = 0; i < response.size(); i++){
         cur_tel["value"] = response.get<double>(i, "param_value");

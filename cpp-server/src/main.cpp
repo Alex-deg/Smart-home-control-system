@@ -60,6 +60,8 @@ int main(){
 
     if(wsThread.joinable())
         wsThread.join();
+    if (api_thread.joinable())
+        api_thread.join();
     
     mqtt->stopLoop();
 
