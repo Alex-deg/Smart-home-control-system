@@ -17,7 +17,6 @@ public:
     enum Topics{
         DB_SAVE_TELEMETRY = 0,
         DB_SAVE_PARAMS, 
-        DB_GET_TELEMETRY,
         REMOTE_SEND,
         TOPICS_N
     };

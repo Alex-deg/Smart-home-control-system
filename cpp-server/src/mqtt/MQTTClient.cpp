@@ -286,8 +286,6 @@ MQTTClient::Topics MQTTClient::convertStringTopicToEnum(const std::string &topic
         return Topics::DB_SAVE_TELEMETRY;
     if (topic == "rpi/database/save/params")
         return Topics::DB_SAVE_PARAMS;    
-    if (topic == "rpi/database/get/telemetry")
-        return Topics::DB_GET_TELEMETRY;
     if (topic == "rpi/send_message/remote")
         return Topics::REMOTE_SEND;
 }
@@ -353,18 +351,6 @@ void MQTTClient::processIncomingMessage(const std::string& topic,
     case Topics::DB_SAVE_PARAMS:
         try{
             db_.addModuleParams(data["module_id"], data["input_amperege"], data["input_voltage"], data["module_temp"], time(NULL));
-        }
-        catch(std::runtime_error &err){
-            std::cerr << err.what() << std::endl;
-        }
-        break;
-    case Topics::DB_GET_TELEMETRY:
-        try{
-            std::vector<double> values = db_.getTelemtry(data["module_id"], data["param_name"], data["time_interval"]);
-            std::stringstream ss;
-            for (auto &&val : values){ ss << val << " "; }
-            // auto module_info = db_.getModuleInfo(data["module_id"]);
-            // publish(module_info["mqtt_topic"] + "/data", ss.str(), 1);
         }
         catch(std::runtime_error &err){
             std::cerr << err.what() << std::endl;
