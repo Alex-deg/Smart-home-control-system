@@ -31,6 +31,25 @@ crow::response API::getTelemetry(long long module_id, const std::string &param_n
     return res;
 }
 
+crow::response API::getParams(long long module_id, int time_interval)
+{
+    crow::response res;
+    res.add_header("Content-Type", "application/json; charset=utf-8");
+    json resp;
+    try{
+        auto params = db.getModuleParams(module_id, time_interval);
+        res.write(json(params).dump(2));
+        return res;
+    }
+    catch(DataBaseException &e){
+        std::cerr << "Error: " << e.what() << std::endl;
+        resp["status"] = false;
+        resp["message"] = "Получение данных прошло с ошибкой";
+    }            
+    res.write(json(resp).dump(2));           
+    return res;
+}
+
 void API::setupRoutes()
 {
 
@@ -42,6 +61,7 @@ void API::setupRoutes()
     CROW_ROUTE(app, "/api/database/telemetry")
     .methods(crow::HTTPMethod::GET)
     ([this](const crow::request& req){
+
         auto params = req.url_params;
         
         if (!params.get("module_id") || !params.get("param_name") || !params.get("time_interval")) {
@@ -56,6 +76,25 @@ void API::setupRoutes()
         long long time_interval = std::stoll(params.get("time_interval"));
         
         return getTelemetry(module_id, param_name, time_interval);
+    });
+
+    CROW_ROUTE(app, "/api/database/params")
+    .methods(crow::HTTPMethod::GET)
+    ([this](const crow::request& req){
+
+        auto params = req.url_params;
+        
+        if (!params.get("module_id") || !params.get("time_interval")) {
+            crow::response res(400);
+            res.write(R"({"error": "Missing required parameters: module_id, time_interval"})");
+            res.set_header("Content-Type", "application/json");
+            return res;
+        }
+        
+        long long module_id = std::stoll(params.get("module_id"));
+        long long time_interval = std::stoll(params.get("time_interval"));
+        
+        return getParams(module_id, time_interval);
     });
 
 }

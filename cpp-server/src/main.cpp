@@ -34,39 +34,36 @@ int main(){
     DataBase db;
     db.open("../Data/smart_home.db");
 
-    db.deleteModuleParamsTable();
-    db.createModuleParamsTable();
+    std::shared_ptr<MQTTClient> mqtt = std::make_shared<MQTTClient>(db);
 
-    // std::shared_ptr<MQTTClient> mqtt = std::make_shared<MQTTClient>(db);
-
-    // if (!mqtt->connect("127.0.0.1", 1883)) {
-    //     return 1;
-    // }
+    if (!mqtt->connect("127.0.0.1", 1883)) {
+        return 1;
+    }
     
-    // mqtt->startLoop();
+    mqtt->startLoop();
 
-    // std::thread wsThread(ws_server_thr, mqtt);
+    std::thread wsThread(ws_server_thr, mqtt);
 
-    // API api(db);
-    // std::thread api_thread([&api]() {
-    //     std::cout << "Starting HTTP API server..." << std::endl;
-    //     api.run(); 
-    // });
+    API api(db);
+    std::thread api_thread([&api]() {
+        std::cout << "Starting HTTP API server..." << std::endl;
+        api.run(); 
+    });
 
-    // while (true) {
-    //     if (!mqtt->isConnected()) {
-    //         std::cout << "Mqtt connection is lost..." << std::endl;
-    //         break;
-    //     }
-    //     std::this_thread::sleep_for(std::chrono::seconds(10));
-    // }
+    while (true) {
+        if (!mqtt->isConnected()) {
+            std::cout << "Mqtt connection is lost..." << std::endl;
+            break;
+        }
+        std::this_thread::sleep_for(std::chrono::seconds(10));
+    }
 
-    // if(wsThread.joinable())
-    //     wsThread.join();
-    // if (api_thread.joinable())
-    //     api_thread.join();
+    if(wsThread.joinable())
+        wsThread.join();
+    if (api_thread.joinable())
+        api_thread.join();
     
-    // mqtt->stopLoop();
+    mqtt->stopLoop();
 
-    // return 0;
+    return 0;
 }
