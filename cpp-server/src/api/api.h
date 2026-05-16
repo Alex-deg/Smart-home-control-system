@@ -14,7 +14,7 @@ private:
     DataBase &db;
     
     crow::response getTelemetry(long long module_id, const std::string &param_name, int time_interval);
-    // crow::response getParams();
+    crow::response getParams(long long module_id, int time_interval);
 
     void setupRoutes();
 
