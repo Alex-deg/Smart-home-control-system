@@ -68,8 +68,7 @@ public:
 
     void addTelemetry(long long module_id, const std::string& param_name, 
                       double param_value, int timestamp, const std::string& meas_unit = "");
-    void addModuleParams(long long module_id, double input_amperage, 
-                         double input_voltage, double module_temp, int timestamp);
+    void addModuleParams(long long module_id, double module_temp, int free_bytes, int timestamp);
 
     std::vector<json> getTelemtry(long long module_id, const std::string& param_name, 
                                   int time_interval);

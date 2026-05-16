@@ -350,7 +350,7 @@ void MQTTClient::processIncomingMessage(const std::string& topic,
         break;
     case Topics::DB_SAVE_PARAMS:
         try{
-            db_.addModuleParams(data["module_id"], data["input_amperege"], data["input_voltage"], data["module_temp"], time(NULL));
+            db_.addModuleParams(data["module_id"], data["module_temp"], data["free_bytes"], time(NULL));
         }
         catch(std::runtime_error &err){
             std::cerr << err.what() << std::endl;

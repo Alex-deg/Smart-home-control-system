@@ -219,9 +219,8 @@ void DataBase::createModuleParamsTable(){
     /**
      * @brief Создание таблицы для хранения параметров модуля для самодиагностики
      * @details module_id - id модуля 
-     * @details input_amperage - входной ток
-     * @details input_voltage - входное напряжение
      * @details module_temp - температура модуля
+     * @details free_bytes - свободное место на ESP32 (для контроля утечки памяти)
      * @details timestamp - временная метка замера параметров модуля
      */
 
@@ -229,9 +228,8 @@ void DataBase::createModuleParamsTable(){
         CREATE TABLE modules_params (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             module_id INTEGER NOT NULL,
-            input_amperage TEXT NOT NULL,
-            input_voltage REAL NOT NULL,
-            module_temp TEXT,
+            module_temp REAL NOT NULL,
+            free_bytes INTEGER NOT NULL,
             timestamp INTEGER NOT NULL
         );   
     )");
@@ -300,23 +298,22 @@ void DataBase::addTelemetry(long long module_id, const std::string &param_name,
     executeRequest(sql, {module_id, param_name, param_value, meas_unit, timestamp});
 }
 
-void DataBase::addModuleParams(long long module_id, double input_amperage, double input_voltage, double module_temp, int timestamp){
+void DataBase::addModuleParams(long long module_id, double module_temp, int free_bytes, int timestamp){
 
     /**
      * @brief Добавление параметров модуля для самодиагностики
-     * @param module_id - id модуля 
-     * @param input_amperage - входной ток
-     * @param input_voltage - входное напряжение
+     * @param module_id   - id модуля 
      * @param module_temp - температура модуля
-     * @param timestamp - временная метка замера параметров модуля
+     * @param free_bytes  - свободное место на ESP32 (для контроля утечки памяти)
+     * @param timestamp   - временная метка замера параметров модуля
     */
 
     // Добавление в таблицу с телеметрией
     std::string sql = R"(
-        INSERT INTO telemetry(module_id, input_amperage, input_voltage, module_temp, timestamp)
+        INSERT INTO telemetry(module_id, module_temp, free_bytes, timestamp)
         VALUES (?, ?, ?, ?, ?)
     )";
-    executeRequest(sql, {module_id, input_amperage, input_voltage, module_temp, timestamp});
+    executeRequest(sql, {module_id, module_temp, free_bytes, timestamp});
 }
 
 /// @brief Получение значений param_name параметра с module_id модуля за последние time_interval МИНУТ
@@ -364,9 +361,8 @@ std::vector<json> DataBase::getModuleParams(long long module_id, int time_interv
     QueryResult response = executeQuery(sql, {module_id, start_time});
     json curParams;
     for(int i = 0; i < response.size(); i++){
-        curParams["input_amperage"] = response.get<double>(i, "input_amperage");
-        curParams["input_voltage"] = response.get<double>(i, "input_voltage");
         curParams["module_temp"] = response.get<double>(i, "module_temp");
+        curParams["free_bytes"] = response.get<double>(i, "free_bytes");
         curParams["timestamp"] = response.get<double>(i, "timestamp");
         moduleParams.push_back(curParams);
     }
