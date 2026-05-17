@@ -1,7 +1,5 @@
-import sqlite3
 import json
 import logging
-import requests
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -9,17 +7,17 @@ import numpy as np
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
 import joblib
-import database_worker
+# import database_worker
 import paho.mqtt.client as mqtt
+import requests
 
 LOCAL_DB = "../cpp-server/Data/smart_home.db"  # путь к БД на RPi
 MODEL_DIR = "./models"                         # директория для моделей
 MODEL_PREFIX = "isoforest"                     # префикс файлов модели
 
-# Удалённый сервер для уведомлений
-REMOTE_SERVER_IP = "192.168.0.105"
-REMOTE_SERVER_PORT = 8000
-BASE_API_URL = "http://" + REMOTE_SERVER_IP + ":" + REMOTE_SERVER_PORT
+LOCAL_SERVER_IP = "192.168.0.105"
+LOCAL_SERVER_PORT = 8080
+BASE_API_URL = "http://" + LOCAL_SERVER_IP + ":" + LOCAL_SERVER_PORT + "/"
 
 # Параметры обучения
 TRAIN_LOOKBACK_DAYS = 30          # обучаем на данных за последние 30 дней
@@ -38,7 +36,7 @@ MQTT_BROKER = "localhost"
 MQTT_PORT = 1883
 MQTT_TOPIC = "rpi/send_message/remote"
 
-database = database_worker.Database()
+# database = database_worker.Database()
 mqtt_client = mqtt.Client()
 
 mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
@@ -51,7 +49,7 @@ def model_paths(module_id):
 def save_anomaly_flag(module_id, record_ids):
     if not record_ids:
         return
-    database.anomaly_tagging(record_ids)
+    requests.post(BASE_API_URL + 'api/database/params/anomaly_tagging', json={'record_ids' : record_ids}) 
 
 def send_alert(module_id, anomaly_records):
 
@@ -89,7 +87,10 @@ def send_alert(module_id, anomaly_records):
 
 def train_model_for_module(module_id):
 
-    df = database.get_params(module_id, TRAIN_LOOKBACK_DAYS * 24, 0)
+    url = BASE_API_URL + 'api/database/params?module_id=' + str(module_id) + \
+          '&time_interval=' + str(TRAIN_LOOKBACK_DAYS * 24) + '&anomaly=0'
+    df = requests.get(url)
+
     if df is None or len(df) < RECORDS_THRESHOLD:
         return False
     
@@ -124,7 +125,8 @@ def train_model_for_module(module_id):
 
 def retrain_all_modules():
 
-    module_ids = database.get_unique_module_ids()
+    url = BASE_API_URL + 'api/database/params/unique_modules'
+    module_ids = requests.get(url)
     
     for module_id in module_ids:
         train_model_for_module(module_id)
@@ -143,7 +145,9 @@ def detect_anomalies_for_module(module_id):
     scaler = joblib.load(scaler_path)
     
     # Берём данные за последние 24 часа
-    df = database.get_params(module_id, 24, 0)
+    url = BASE_API_URL + 'api/database/params?module_id=' + str(module_id) + \
+          '&time_interval=24&anomaly=0'
+    df = requests.get(url)
     if not df:
         return
         
@@ -181,7 +185,8 @@ def detect_anomalies_for_module(module_id):
     send_alert(module_id, anomaly_records)
 
 def daily_detection():
-    module_ids = database.get_unique_module_ids()    
+    url = BASE_API_URL + 'api/database/params/unique_modules'
+    module_ids = requests.get(url)
     for module_id in module_ids:
         detect_anomalies_for_module(module_id)
 
