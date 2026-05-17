@@ -68,11 +68,14 @@ public:
 
     void addTelemetry(long long module_id, const std::string& param_name, 
                       double param_value, int timestamp, const std::string& meas_unit = "");
-    void addModuleParams(long long module_id, double module_temp, int free_bytes, int timestamp);
+    void addModuleParams(long long module_id, double module_temp, int free_bytes, 
+                         int timestamp, bool anomaly = false);
 
     std::vector<json> getTelemtry(long long module_id, const std::string& param_name, 
                                   int time_interval);
-    std::vector<json> getModuleParams(long long module_id, int time_interval);
+    std::vector<json> getModuleParams(long long module_id, int time_interval, bool with_anomalies);
+    void anomalyTagging(std::vector<long long> record_ids);  
+    std::vector<json> getUniqueModuleIDs();
     void deleteTableByName(const std::string& name);
 
 };
