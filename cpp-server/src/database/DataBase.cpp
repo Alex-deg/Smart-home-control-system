@@ -231,6 +231,7 @@ void DataBase::createModuleParamsTable(){
             module_temp REAL NOT NULL,
             free_bytes INTEGER NOT NULL,
             timestamp INTEGER NOT NULL
+            anomaly BOOLEAN NOT NULL
         );   
     )");
 }
@@ -298,7 +299,8 @@ void DataBase::addTelemetry(long long module_id, const std::string &param_name,
     executeRequest(sql, {module_id, param_name, param_value, meas_unit, timestamp});
 }
 
-void DataBase::addModuleParams(long long module_id, double module_temp, int free_bytes, int timestamp){
+void DataBase::addModuleParams(long long module_id, double module_temp, int free_bytes, 
+                               int timestamp, bool anomaly = false){
 
     /**
      * @brief Добавление параметров модуля для самодиагностики
@@ -306,14 +308,15 @@ void DataBase::addModuleParams(long long module_id, double module_temp, int free
      * @param module_temp - температура модуля
      * @param free_bytes  - свободное место на ESP32 (для контроля утечки памяти)
      * @param timestamp   - временная метка замера параметров модуля
+     * @param anomaly     - метка аномальности
     */
 
     // Добавление в таблицу с телеметрией
     std::string sql = R"(
-        INSERT INTO telemetry(module_id, module_temp, free_bytes, timestamp)
+        INSERT INTO telemetry(module_id, module_temp, free_bytes, timestamp, anomaly)
         VALUES (?, ?, ?, ?, ?)
     )";
-    executeRequest(sql, {module_id, module_temp, free_bytes, timestamp});
+    executeRequest(sql, {module_id, module_temp, free_bytes, timestamp, anomaly});
 }
 
 /// @brief Получение значений param_name параметра с module_id модуля за последние time_interval МИНУТ
@@ -346,7 +349,7 @@ std::vector<json> DataBase::getTelemtry(long long module_id, const std::string &
 }
 
 /// @brief Получение параметров module_id модуля за последние time_interval ЧАСОВ
-std::vector<json> DataBase::getModuleParams(long long module_id, int time_interval)
+std::vector<json> DataBase::getModuleParams(long long module_id, int time_interval, bool with_anomalies)
 {
     std::vector<json> moduleParams;
 
@@ -356,17 +359,44 @@ std::vector<json> DataBase::getModuleParams(long long module_id, int time_interv
         SELECT
             *
         FROM modules_params
-        WHERE module_id = ? AND timestamp >= ?
+        WHERE module_id = ? AND timestamp >= ? AND anomaly <= ?
     )";
-    QueryResult response = executeQuery(sql, {module_id, start_time});
+    QueryResult response = executeQuery(sql, {module_id, start_time, with_anomalies});
     json curParams;
     for(int i = 0; i < response.size(); i++){
+        curParams["id"] = response.get<long long>(i, "id");
         curParams["module_temp"] = response.get<double>(i, "module_temp");
         curParams["free_bytes"] = response.get<double>(i, "free_bytes");
         curParams["timestamp"] = response.get<double>(i, "timestamp");
         moduleParams.push_back(curParams);
     }
     return moduleParams;
+}
+
+void DataBase::anomalyTagging(std::vector<long long> record_ids){
+    std::string sql = R"(
+        UPDATE modules_params
+        SET anomaly = 1
+        WHERE id = ?
+    )";
+    for (auto &&id : record_ids){
+        executeRequest(sql, {id});
+    }
+}
+
+std::vector<json> DataBase::getUniqueModuleIDs()
+{
+    std::vector<json> ids;
+    std::string sql = R"(
+        SELECT DISTINCT module_id FROM modules_params
+    )";
+    QueryResult response = executeQuery(sql);
+    json curID;
+    for (int i = 0; i < response.size(); i++){
+        curID["id"] = response.get<long long>(i, "module_id");
+        ids.push_back(ids);
+    }
+    return ids;
 }
 
 void DataBase::deleteTableByName(const std::string &name){
