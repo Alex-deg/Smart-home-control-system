@@ -67,11 +67,15 @@ void WebSocketClient::on_message(connection_hdl hdl, client::message_ptr msg) {
     
     try {
         json data = json::parse(payload);
-        json payload;
-        payload["request_id"] = data["request_id"];
-        payload["payload"] = data["params"]["payload"];
-        if (data["type"] == "command")
+        if(data["type"] == "command"){
+            json payload;
+            payload["request_id"] = data["request_id"];
+            payload["payload"] = data["params"]["payload"];
             m_mqtt_publish(data["params"]["mqtt_topic"], payload.dump(), 1);
+        }
+        if(data["type"] == "scenario"){
+            
+        }
     }
     catch (const json::parse_error& e) {
         std::cout << "  (Обычное текстовое сообщение)" << std::endl;
