@@ -111,7 +111,7 @@ async def send_command(user_id: int, server_id: int, module_id : int, capability
         future = asyncio.Future()
         pending_requests[request_id] = future
 
-        command  =  {
+        message  =  {
                         "type" : "command",
                         "request_id" : request_id,
                         "params" : {
@@ -119,7 +119,7 @@ async def send_command(user_id: int, server_id: int, module_id : int, capability
                             "payload" : capability_info["name"]
                         }
                     }
-        await ws.send_text(json.dumps(command))
+        await ws.send_text(json.dumps(message))
         try:
             # мб задать таймаут переменной
             response = await asyncio.wait_for(future, timeout=10.0)
@@ -132,7 +132,7 @@ async def send_command(user_id: int, server_id: int, module_id : int, capability
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/users/{user_id}/servers/{server_id}/add_scenario")
-async def add_scenario_and_send(user_id: int, server_id : int, scenario_json : json):
+async def add_scenario_and_send(user_id: int, server_id : int, scenario : str):
     server_info = db.get_server_info(server_id)
     owner_id = db.get_server_owner_id(server_id)
     if owner_id != user_id:
@@ -141,7 +141,11 @@ async def add_scenario_and_send(user_id: int, server_id : int, scenario_json : j
     if not ws:
         raise HTTPException(status_code=404, detail="RPi not connected")
     try:
-        await ws.send_text(scenario_json.dumps())
+        message  =  {
+                        "type" : "scenario",
+                        "scenario" : scenario,
+                    }
+        await ws.send_text(json.dumps(message))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
