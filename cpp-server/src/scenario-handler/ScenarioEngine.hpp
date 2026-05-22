@@ -6,6 +6,10 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include "ExpressionParser.hpp"
+#include "ASTNodes.hpp"
+#include <algorithm>
+#include <stdexcept>
 
 class Node;
 

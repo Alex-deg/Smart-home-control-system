@@ -12,6 +12,9 @@ set(
     ./src/database/DataBase.h
     ./src/mqtt/MQTTClient.h
     ./src/api/api.h
+    ./src/scenario-handler/ASTNodes.hpp
+    ./src/scenario-handler/ExpressionParser.hpp
+    ./src/scenario-handler/ScenarioEngine.hpp
 )
 
 set(
@@ -21,6 +24,9 @@ set(
     ./src/ws/ws.cpp
     ./src/mqtt/MQTTClient.cpp
     ./src/api/api.cpp
+    ./src/scenario-handler/ASTNodes.cpp
+    ./src/scenario-handler/ExpressionParser.cpp
+    ./src/scenario-handler/ScenarioEngine.cpp
 )
 
 find_package(SQLite3 REQUIRED)

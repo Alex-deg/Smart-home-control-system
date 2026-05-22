@@ -10,6 +10,7 @@
 #include <signal.h>
 
 #include "../database/DataBase.h"
+#include "../scenario-handler/ScenarioEngine.hpp"
 
 using json = nlohmann::json;
 using websocketpp::connection_hdl;
@@ -24,7 +25,7 @@ public:
     using CommandCallback = std::function<void(const std::string& mqtt_topic,
                                                const std::string& message,
                                                int qos)>;
-    WebSocketClient(const std::string& token, const std::string& server_url);
+    WebSocketClient(const std::string& token, const std::string& server_url, DataBase &_db, ScenarioEngine &_se);
     void connect();
     void send_message(const std::string& message);
     void stop();
@@ -38,6 +39,7 @@ private:
     void send(const std::string& message);
     // void schedule_reconnect();
 private:
+    ScenarioEngine& scenarioHandler;
     client m_client;
     std::string m_token;
     std::string m_server_url;
@@ -45,4 +47,5 @@ private:
     int m_reconnect_delay;
     std::atomic<bool> m_connected;
     CommandCallback m_mqtt_publish;
+    DataBase& db;
 };

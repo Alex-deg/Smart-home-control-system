@@ -1,8 +1,4 @@
 #include "ScenarioEngine.hpp"
-#include "ExpressionParser.hpp"
-#include "ASTNodes.hpp"
-#include <algorithm>
-#include <stdexcept>
 
 void ScenarioEngine::addScenario(int scenarioId, const std::string& expression) {
     auto ast = ExpressionParser::parse(expression);

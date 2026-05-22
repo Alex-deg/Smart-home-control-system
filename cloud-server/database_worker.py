@@ -553,6 +553,23 @@ class Database(IDataBase):
         capability_info["name"] = response.get_str(0, "name")
         return capability_info
     
+    def get_act_info(self, actID) -> List:
+        sql = (
+            "SELECT " 
+            "    m.mqtt_topic, "
+            "    c.name  "
+            "FROM modules_capabilities mc "
+            "JOIN modules m ON mc.module_id = m.id "
+            "JOIN capabilities c ON mc.capability_id = c.id "
+            "WHERE mc.id = ?; "
+        )
+        act = {}
+        response = self.execute_query(sql, [actID])
+        for i in range(response.size()):
+            act["mqtt_topic"] = response.get_str(i, "mqtt_topic")
+            act["command"] = response.get_str(i, "name")
+        return act
+
     def check_auth(self, login, password):
         sql = (
             "SELECT " 

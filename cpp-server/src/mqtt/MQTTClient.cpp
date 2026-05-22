@@ -14,8 +14,8 @@ std::string generateClientId() {
     return ss.str();
 }
 
-MQTTClient::MQTTClient(DataBase& db) 
-    : db_(db), mosq_(nullptr), connected_(false), running_(false) {
+MQTTClient::MQTTClient(DataBase& db, ScenarioEngine &se) 
+    : db_(db), scenarioHandler(se), mosq_(nullptr), connected_(false), running_(false) {
     
     client_id_ = generateClientId();
     
@@ -78,10 +78,7 @@ bool MQTTClient::connect(const std::string& host, int port, int keepalive) {
         std::cerr << "Failed to initiate connection: " << mosquitto_strerror(rc) << std::endl;
         return false;
     }
-    
-    // Запуск потока обработки
-    // startLoop();
-    
+        
     return true;
 }
 
@@ -343,6 +340,25 @@ void MQTTClient::processIncomingMessage(const std::string& topic,
     case Topics::DB_SAVE_TELEMETRY:
         try{
             db_.addTelemetry(data["module_id"], data["param_name"], data["param_value"], time(NULL), data["meas_unit"]);
+            std::vector<int> triggeredScenarios = scenarioHandler.updateParameter(data["param_name"], data["param_value"]);
+            httplib::Client client(BASE_API_URL); // вынести в конструктор
+            for (auto &&tsID : triggeredScenarios){
+                std::vector<long long> actIDs = db_.getScenariosActs(tsID);
+                for (auto &&actID : actIDs){ // ПРОБЛЕМА В ТОМ, ЧТО НЕ МОЖЕМ ДОСТУЧАТЬСЯ ДО УДАЛЕННОГО СЕРВЕРА
+                    if (auto res = client.Get("/api/get_act_info/" + std::to_string(actID))) {
+                        if (res->status == 200) {
+                            std::string response = res->body;
+                            json actInfo = json::parse(response);
+                            publish(actInfo["mqtt_topic"], actInfo["command"], 1);
+                            std::cout << "Command = " << actInfo["command"] << " has been published into " << actInfo["mqtt_topic"] << std::endl;
+                        } else {
+                            std::cout << "Ошибка HTTP: " << res->status << std::endl;
+                        }
+                    } else {
+                        std::cout << "Не удалось подключиться к серверу" << std::endl;
+                    }
+                }
+            }
         }
         catch(std::runtime_error &err){
             std::cerr << err.what() << std::endl;

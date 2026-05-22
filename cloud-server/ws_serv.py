@@ -132,7 +132,9 @@ async def send_command(user_id: int, server_id: int, module_id : int, capability
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/users/{user_id}/servers/{server_id}/add_scenario")
-async def add_scenario_and_send(user_id: int, server_id : int, scenario : str):
+async def add_scenario_and_send(user_id: int, server_id : int, scenario_name : str, 
+                                                               scenario_condition : str, 
+                                                               scenario_acts : list[int]):
     server_info = db.get_server_info(server_id)
     owner_id = db.get_server_owner_id(server_id)
     if owner_id != user_id:
@@ -143,11 +145,20 @@ async def add_scenario_and_send(user_id: int, server_id : int, scenario : str):
     try:
         message  =  {
                         "type" : "scenario",
-                        "scenario" : scenario,
+                        "scenario" : {
+                            "name" : scenario_name,
+                            "condition" : scenario_condition,
+                            "acts" : scenario_acts
+                        }
                     }
         await ws.send_text(json.dumps(message))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/get_act_info/{act_id}")
+async def get_act_info(act_id : int):
+    return db.get_act_info(act_id)
+
 
 @app.websocket("/ws/bind_server/{server_token}")
 async def websocket_endpoint(websocket: WebSocket, server_token: str):

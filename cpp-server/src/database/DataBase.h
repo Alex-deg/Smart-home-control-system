@@ -59,21 +59,30 @@ public:
 
     void createTelemetryTable();
     void createModuleParamsTable();
+    void createScenariosTable();
+    void createScenariosActsTable();
 
     void deleteTelemetryTable();
     void deleteModuleParamsTable();
+    void deleteScenariosTable();
+    void deleteScenariosActsTable();
 
     void clearTelemetryTable();
     void clearModuleParamsTable();
+    void clearScenariosTable();
+    void clearScenariosActsTable();
 
     void addTelemetry(long long module_id, const std::string& param_name, 
                       double param_value, int timestamp, const std::string& meas_unit = "");
     void addModuleParams(long long module_id, double module_temp, int free_bytes, 
                          int timestamp, bool anomaly = false);
+    long long addScenario(const std::string& name, const std::string& condition);
+    void addScenariosAct(long long scenario_id, long long act_id);
 
     std::vector<json> getTelemtry(long long module_id, const std::string& param_name, 
                                   int time_interval);
     std::vector<json> getModuleParams(long long module_id, int time_interval, bool with_anomalies);
+    std::vector<long long> getScenariosActs(long long scenario_id);
     void anomalyTagging(std::vector<long long> record_ids);  
     std::vector<json> getUniqueModuleIDs();
     void deleteTableByName(const std::string& name);

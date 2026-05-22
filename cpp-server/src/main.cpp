@@ -3,11 +3,12 @@
 #include "api/api.h"
 #include <nlohmann/json.hpp>
 #include "mqtt/MQTTClient.h"
-#include "ws/ws.cpp"
+#include "ws/ws.hpp"
+#include "scenario-handler/ScenarioEngine.hpp"
 
 using json = nlohmann::json;
 
-void ws_server_thr(std::shared_ptr<MQTTClient> mqtt_client){
+void ws_server_thr(std::shared_ptr<MQTTClient> mqtt_client, DataBase &db, ScenarioEngine &se){
     std::string server_token;
     std::cout << "Введите токен сервера: ";
     std::getline(std::cin, server_token);
@@ -19,7 +20,7 @@ void ws_server_thr(std::shared_ptr<MQTTClient> mqtt_client){
         std::cout << "TOKEN = " << server_token << std::endl;
     }
     std::string base_server_url = "ws://127.0.0.1:8000/ws/bind_server/";
-    auto client = std::make_shared<RPiWebSocketClient>(server_token, base_server_url);
+    auto client = std::make_shared<WebSocketClient>(server_token, base_server_url, db, se);
     mqtt_client->setSendCallback([client](const std::string& message){
         client->send_message(message);
     });
@@ -34,7 +35,9 @@ int main(){
     DataBase db;
     db.open("../Data/smart_home.db");
 
-    std::shared_ptr<MQTTClient> mqtt = std::make_shared<MQTTClient>(db);
+    ScenarioEngine se;
+
+    std::shared_ptr<MQTTClient> mqtt = std::make_shared<MQTTClient>(db, se);
 
     if (!mqtt->connect("127.0.0.1", 1883)) {
         return 1;
@@ -42,7 +45,19 @@ int main(){
     
     mqtt->startLoop();
 
-    std::thread wsThread(ws_server_thr, mqtt);
+    int wait_count = 0;
+    while (!mqtt->isConnected() && wait_count < 30) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+        wait_count++;
+        std::cout << "Waiting for MQTT connection... " << wait_count << "s" << std::endl;
+    }
+    
+    if (!mqtt->isConnected()) {
+        std::cerr << "MQTT connection timeout!" << std::endl;
+        return 1;
+    }
+
+    std::thread wsThread(ws_server_thr, mqtt, std::ref(db), std::ref(se));
 
     API api(db);
     std::thread api_thread([&api]() {
