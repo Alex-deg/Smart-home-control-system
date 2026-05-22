@@ -100,8 +100,6 @@ async def send_command(user_id: int, server_id: int, module_id : int, capability
     owner_id = db.get_server_owner_id(server_id)
     if owner_id != user_id:
         raise HTTPException(status_code=403, detail="Not owned")
-    print(server_info)
-    print(active_connections)
     ws = active_connections.get(server_info["token"])
     if not ws:
         raise HTTPException(status_code=404, detail="RPi not connected")
@@ -113,7 +111,7 @@ async def send_command(user_id: int, server_id: int, module_id : int, capability
         future = asyncio.Future()
         pending_requests[request_id] = future
 
-        command  =  {
+        message  =  {
                         "type" : "command",
                         "request_id" : request_id,
                         "params" : {
@@ -121,7 +119,7 @@ async def send_command(user_id: int, server_id: int, module_id : int, capability
                             "payload" : capability_info["name"]
                         }
                     }
-        await ws.send_text(json.dumps(command))
+        await ws.send_text(json.dumps(message))
         try:
             # мб задать таймаут переменной
             response = await asyncio.wait_for(future, timeout=10.0)
@@ -132,6 +130,35 @@ async def send_command(user_id: int, server_id: int, module_id : int, capability
             pending_requests.pop(request_id, None)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/users/{user_id}/servers/{server_id}/add_scenario")
+async def add_scenario_and_send(user_id: int, server_id : int, scenario_name : str, 
+                                                               scenario_condition : str, 
+                                                               scenario_acts : list[int]):
+    server_info = db.get_server_info(server_id)
+    owner_id = db.get_server_owner_id(server_id)
+    if owner_id != user_id:
+        raise HTTPException(status_code=403, detail="Not owned")
+    ws = active_connections.get(server_info["token"])
+    if not ws:
+        raise HTTPException(status_code=404, detail="RPi not connected")
+    try:
+        message  =  {
+                        "type" : "scenario",
+                        "scenario" : {
+                            "name" : scenario_name,
+                            "condition" : scenario_condition,
+                            "acts" : scenario_acts
+                        }
+                    }
+        await ws.send_text(json.dumps(message))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/get_act_info/{act_id}")
+async def get_act_info(act_id : int):
+    return db.get_act_info(act_id)
+
 
 @app.websocket("/ws/bind_server/{server_token}")
 async def websocket_endpoint(websocket: WebSocket, server_token: str):

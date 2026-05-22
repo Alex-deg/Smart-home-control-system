@@ -1,7 +1,8 @@
 #include "ws.hpp"
 
-WebSocketClient::WebSocketClient(const std::string& token, const std::string& server_url)
-    : m_token(token), m_server_url(server_url), m_reconnect_delay(5), m_connected(false) {
+WebSocketClient::WebSocketClient(const std::string& token, const std::string& server_url, DataBase &_db, ScenarioEngine &_se)
+    : m_token(token), m_server_url(server_url), m_reconnect_delay(5), m_connected(false), db(_db), 
+      scenarioHandler(_se) {
     
     m_client.init_asio();
     
@@ -67,11 +68,20 @@ void WebSocketClient::on_message(connection_hdl hdl, client::message_ptr msg) {
     
     try {
         json data = json::parse(payload);
-        json payload;
-        payload["request_id"] = data["request_id"];
-        payload["payload"] = data["params"]["payload"];
-        if (data["type"] == "command")
+        if(data["type"] == "command"){
+            json payload;
+            payload["request_id"] = data["request_id"];
+            payload["payload"] = data["params"]["payload"];
             m_mqtt_publish(data["params"]["mqtt_topic"], payload.dump(), 1);
+        }
+        if(data["type"] == "scenario"){
+            long long scenarioID = db.addScenario(data["scenario"]["name"], data["scenario"]["condition"]);
+            std::vector<long long> actIDs = data["scenario"]["acts"];
+            for (auto actID : actIDs){
+                db.addScenariosAct(scenarioID, actID);
+            }
+            scenarioHandler.addScenario(scenarioID, data["scenario"]["condition"]);
+        }
     }
     catch (const json::parse_error& e) {
         std::cout << "  (Обычное текстовое сообщение)" << std::endl;

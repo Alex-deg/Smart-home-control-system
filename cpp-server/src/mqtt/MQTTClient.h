@@ -10,6 +10,12 @@
 #include <thread>
 #include "../database/DataBase.h"
 #include <condition_variable>
+#include "../scenario-handler/ScenarioEngine.hpp"
+#include "../../include/httplib.h"
+
+const std::string REMOTE_SERVER_IP = "127.0.0.1";
+const int REMOTE_SERVER_API_PORT = 8000;
+const std::string BASE_API_URL = REMOTE_SERVER_IP + ":" + std::to_string(REMOTE_SERVER_API_PORT);
 
 class MQTTClient {
 public:
@@ -26,7 +32,7 @@ public:
     
     using SendCallback = std::function<void(const std::string& message)>;
 
-    explicit MQTTClient(DataBase& db);
+    explicit MQTTClient(DataBase& db, ScenarioEngine &se);
     ~MQTTClient();
 
     // Основные методы
@@ -89,7 +95,8 @@ private:
 private:
     struct mosquitto* mosq_;
     DataBase& db_;
-    
+    ScenarioEngine& scenarioHandler;
+
     std::string client_id_;
     std::string host_;
     int port_;
