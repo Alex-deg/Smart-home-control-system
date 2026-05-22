@@ -14,7 +14,7 @@
 #include "../../include/httplib.h"
 
 const std::string REMOTE_SERVER_IP = "127.0.0.1";
-const int REMOTE_SERVER_API_PORT = 8080;
+const int REMOTE_SERVER_API_PORT = 8000;
 const std::string BASE_API_URL = REMOTE_SERVER_IP + ":" + std::to_string(REMOTE_SERVER_API_PORT);
 
 class MQTTClient {

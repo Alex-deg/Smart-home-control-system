@@ -344,12 +344,15 @@ void MQTTClient::processIncomingMessage(const std::string& topic,
             httplib::Client client(BASE_API_URL); // вынести в конструктор
             for (auto &&tsID : triggeredScenarios){
                 std::vector<long long> actIDs = db_.getScenariosActs(tsID);
-                for (auto &&actID : actIDs){ // ПРОБЛЕМА В ТОМ, ЧТО НЕ МОЖЕМ ДОСТУЧАТЬСЯ ДО УДАЛЕННОГО СЕРВЕРА
+                for (auto &&actID : actIDs){ 
                     if (auto res = client.Get("/api/get_act_info/" + std::to_string(actID))) {
                         if (res->status == 200) {
                             std::string response = res->body;
                             json actInfo = json::parse(response);
-                            publish(actInfo["mqtt_topic"], actInfo["command"], 1);
+                            json message;
+                            message["request_id"] = -1; // stub, not good solution in general
+                            message["payload"] = actInfo["command"];
+                            publish(actInfo["mqtt_topic"], message.dump(), 1);
                             std::cout << "Command = " << actInfo["command"] << " has been published into " << actInfo["mqtt_topic"] << std::endl;
                         } else {
                             std::cout << "Ошибка HTTP: " << res->status << std::endl;
