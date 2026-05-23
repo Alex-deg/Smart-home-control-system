@@ -1,23 +1,7 @@
 #include "../include/DataBase.hpp"
-#include "DataBase.hpp"
 
 bool QueryResult::empty() const { return rows.empty(); }
 size_t QueryResult::size() const { return rows.size(); }
-
-template<typename T>
-T QueryResult::get(size_t row, size_t col) const {
-    return std::get<T>(rows[row][col]);
-}
-
-template<typename T>
-T QueryResult::get(size_t row, const std::string& columnName) const {
-    auto it = std::find(columnNames.begin(), columnNames.end(), columnName);
-    if (it == columnNames.end()) {
-        throw std::runtime_error("Column not found: " + columnName);
-    }
-    size_t col = std::distance(columnNames.begin(), it);
-    return get<T>(row, col);
-}
 
 QueryResult IDataBase::executeQuery(const std::string& sql,
                                    const std::vector<SQLValue>& params) {
@@ -126,7 +110,7 @@ void IDataBase::close(){
 
 bool IDataBase::isTableExists(const std::string &table_name)
 {
-    QueryResult response = executeQuery("SELECT FROM sqlite_sequence WHERE name = ?", {table_name});
+    QueryResult response = executeQuery("SELECT * FROM sqlite_sequence WHERE name = ?", {table_name});
     return !response.empty();
 }
 

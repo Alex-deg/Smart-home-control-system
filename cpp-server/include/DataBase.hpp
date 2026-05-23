@@ -24,9 +24,19 @@ public:
     size_t size() const;
     
     template<typename T>
-    T get(size_t row, size_t col) const;
+    T get(size_t row, size_t col) const {
+        return std::get<T>(rows[row][col]);
+    }
+
     template<typename T>
-    T get(size_t row, const std::string& columnName) const;
+    T get(size_t row, const std::string& columnName) const {
+        auto it = std::find(columnNames.begin(), columnNames.end(), columnName);
+        if (it == columnNames.end()) {
+            throw std::runtime_error("Column not found: " + columnName);
+        }
+        size_t col = std::distance(columnNames.begin(), it);
+        return get<T>(row, col);
+    }
 };
 
 class IDataBase{
