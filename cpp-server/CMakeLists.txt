@@ -21,13 +21,13 @@ set(
 
 set(
     SOURCE
-    src/api.hpp
-    src/ASTNodes.hpp
-    src/DataBase.hpp
-    src/MQTTClient.hpp
-    src/ScenarioHandler.hpp
-    src/ScenarioParser.hpp
-    src/ws.hpp
+    src/api.cpp
+    src/ASTNodes.cpp
+    src/DataBase.cpp
+    src/MQTTClient.cpp
+    src/ScenarioHandler.cpp
+    src/ScenarioParser.cpp
+    src/ws.cpp
     main.cpp
 )
 

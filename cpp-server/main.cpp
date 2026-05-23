@@ -16,6 +16,7 @@ namespace Settings{
 
     std::string REMOTE_SERVER_IP;
     int REMOTE_SERVER_API_PORT;
+    std::string REMOTE_SERVER_BASE_API_URL;
     std::string WS_CONNECTION_BIND_ENDPOINT;
     std::string GET_ACT_INFO_ENDPOINT;
 
@@ -34,8 +35,7 @@ void ws_server_thr(std::shared_ptr<MQTTClient> mqtt_client, DataBase &db, Scenar
     else{
         std::cout << "TOKEN = " << server_token << std::endl;
     }
-    std::string BASE_API_URL = Settings::REMOTE_SERVER_IP + ":" + std::to_string(Settings::REMOTE_SERVER_API_PORT);
-    auto client = std::make_shared<WebSocketClient>(server_token, BASE_API_URL + Settings::WS_CONNECTION_BIND_ENDPOINT, db, sh);
+    auto client = std::make_shared<WebSocketClient>(server_token, Settings::REMOTE_SERVER_BASE_API_URL + Settings::WS_CONNECTION_BIND_ENDPOINT, db, sh);
     mqtt_client->setSendCallback([client](const std::string& message){
         client->send_message(message);
     });
@@ -47,28 +47,36 @@ void ws_server_thr(std::shared_ptr<MQTTClient> mqtt_client, DataBase &db, Scenar
 
 void getSettingsValuesFromJson(const std::string& path){
     JSONHandler jh;
-    jh.open(path);
-    Settings::PATH_TO_DATABASE = jh.getValueByKey<std::string>("CPP_CORE_SETTINGS.PATH_TO_DATABASE");
-    Settings::API_PORT = jh.getValueByKey<int>("CPP_CORE_SETTINGS.API_PORT");
-    Settings::REMOTE_SERVER_IP = jh.getValueByKey<std::string>("REMOTE_SERVER_SETTINGS.REMOTE_SERVER_IP");
-    Settings::REMOTE_SERVER_API_PORT = jh.getValueByKey<int>("REMOTE_SERVER_SETTINGS.REMOTE_SERVER_API_PORT");
-    Settings::WS_CONNECTION_BIND_ENDPOINT = jh.getValueByKey<std::string>("REMOTE_SERVER_SETTINGS.ENDPOINTS.WS_CONNECTION_BIND_ENDPOINT");
-    Settings::GET_ACT_INFO_ENDPOINT = jh.getValueByKey<std::string>("REMOTE_SERVER_SETTINGS.ENDPOINTS.GET_ACT_INFO_ENDPOINT");
-    Settings::MQTT_BROKER_IP = jh.getValueByKey<std::string>("MQTT_SETTINGS.MQTT_BROKER_IP");
-    Settings::MQTT_BROKER_PORT = jh.getValueByKey<int>("MQTT_SETTINGS.MQTT_BROKER_PORT");
+    if(jh.open(path)){
+        Settings::PATH_TO_DATABASE = jh.getValueByKey<std::string>("CPP_CORE_SETTINGS.PATH_TO_DATABASE");
+        Settings::API_PORT = jh.getValueByKey<int>("CPP_CORE_SETTINGS.API_PORT");
+        Settings::REMOTE_SERVER_IP = jh.getValueByKey<std::string>("REMOTE_SERVER_SETTINGS.REMOTE_SERVER_IP");
+        Settings::REMOTE_SERVER_API_PORT = jh.getValueByKey<int>("REMOTE_SERVER_SETTINGS.REMOTE_SERVER_API_PORT");
+        Settings::REMOTE_SERVER_BASE_API_URL = Settings::REMOTE_SERVER_IP + ":" + std::to_string(Settings::REMOTE_SERVER_API_PORT);
+        Settings::WS_CONNECTION_BIND_ENDPOINT = jh.getValueByKey<std::string>("REMOTE_SERVER_SETTINGS.ENDPOINTS.WS_CONNECTION_BIND_ENDPOINT");
+        Settings::GET_ACT_INFO_ENDPOINT = jh.getValueByKey<std::string>("REMOTE_SERVER_SETTINGS.ENDPOINTS.GET_ACT_INFO_ENDPOINT");
+        Settings::MQTT_BROKER_IP = jh.getValueByKey<std::string>("MQTT_SETTINGS.MQTT_BROKER_IP");
+        Settings::MQTT_BROKER_PORT = jh.getValueByKey<int>("MQTT_SETTINGS.MQTT_BROKER_PORT");
+        std::cout << Settings::PATH_TO_DATABASE << std::endl;
+    }
+    else{
+        std::cout << "Config file don't open" << std::endl;
+    }
 }
 
 int main(){
 
-    getSettingsValuesFromJson("configs/config.json");
+    getSettingsValuesFromJson("../configs/config.json");
 
     DataBase db;
     db.open(Settings::PATH_TO_DATABASE);
 
     ScenarioHandler sh;
 
-    std::shared_ptr<MQTTClient> mqtt = std::make_shared<MQTTClient>(db, sh);
+    std::shared_ptr<MQTTClient> mqtt = std::make_shared<MQTTClient>(db, sh, Settings::REMOTE_SERVER_BASE_API_URL, 
+                                                                            Settings::GET_ACT_INFO_ENDPOINT);
 
+    std::cout << Settings::MQTT_BROKER_IP << " " << Settings::MQTT_BROKER_PORT << std::endl;
     if (!mqtt->connect(Settings::MQTT_BROKER_IP, Settings::MQTT_BROKER_PORT)) {
         return 1;
     }
