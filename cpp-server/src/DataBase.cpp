@@ -1,4 +1,5 @@
 #include "../include/DataBase.hpp"
+#include "DataBase.hpp"
 
 bool QueryResult::empty() const { return rows.empty(); }
 size_t QueryResult::size() const { return rows.size(); }
@@ -123,7 +124,18 @@ void IDataBase::close(){
     }
 }
 
-bool IDataBase::isOpen() const {
+bool IDataBase::isTableExists(const std::string &table_name)
+{
+    QueryResult response = executeQuery("SELECT FROM sqlite_sequence WHERE name = ?", {table_name});
+    return !response.empty();
+}
+
+void IDataBase::vacuum(){
+    executeRequest("VACUUM");
+}
+
+bool IDataBase::isOpen() const
+{
     return db != nullptr;
 }
 
@@ -180,14 +192,6 @@ void IDataBase::executeRequest(const std::string& sql,
     }
     
     sqlite3_finalize(stmt);
-}
-
-void DataBase::commit(){
-    executeRequest("COMMIT");
-}
-
-void DataBase::rollback(){
-    executeRequest("ROLLBACK");
 }
 
 

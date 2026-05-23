@@ -31,7 +31,6 @@ public:
 
 class IDataBase{
     sqlite3 *db = nullptr;
-    void close();
 protected:
     void executeRequest(const std::string &sql);
     void executeRequest(const std::string& sql, 
@@ -45,14 +44,13 @@ public:
 
     void open(const std::string &path_to_database);
     bool isOpen() const;
-
+    void close();
+    bool isTableExists(const std::string& table_name);
+    void vacuum();
 };
 
 class DataBase : public IDataBase{
 public:
-
-    void commit();
-    void rollback();
 
     void createTelemetryTable();
     void createScenariosTable();
