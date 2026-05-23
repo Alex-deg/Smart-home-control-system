@@ -1,5 +1,4 @@
 #include "ASTNodes.hpp"
-#include <stdexcept>
 
 CompareNode::CompareNode(const std::string& param, const std::string& op, double value)
     : param_(param), op_(op), value_(value) {}
