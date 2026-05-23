@@ -1,37 +1,37 @@
-import json
-from datetime import datetime, timedelta
-from pathlib import Path
-from typing import List, Dict, Optional, Any
-
-import numpy as np
-import joblib
-import paho.mqtt.client as mqtt
-import requests
 from sklearn.ensemble import IsolationForest
 from sklearn.preprocessing import StandardScaler
+from typing import List, Dict, Any
+from dotenv import load_dotenv
+from datetime import datetime
+from pathlib import Path
+import paho.mqtt.client as mqtt
+import numpy as np
+import requests
+import joblib
+import json
+import os
 
-LOCAL_SERVER_IP = "192.168.0.105"
-LOCAL_API_PORT = 8080
-BASE_API_URL = f"http://{LOCAL_SERVER_IP}:{LOCAL_API_PORT}"
+load_dotenv(".env") 
 
-MODEL_DIR = "./models"                         # директория для моделей
+BASE_API_URL = f"http://{os.getenv("LOCAL_SERVER_IP")}:{os.getenv("LOCAL_API_PORT")}"
+MQTT_BROKER  = os.getenv("MQTT_BROKER")
+MQTT_PORT    = os.getenv("MQTT_PORT")
+MQTT_TOPIC   = os.getenv("MQTT_TOPIC") # topic for send message to remote server
+MODEL_DIR    = os.getenv("MODEL_DIR")
+FETCH_DIAGNOSTIC_DATA_ENDPOINT = os.getenv("FETCH_DIAGNOSTIC_DATA_ENDPOINT")
+FETCH_MODULE_IDS_ENDPOINT      = os.getenv("FETCH_MODULE_IDS_ENDPOINT")
+ANOMALY_TAGGING_ENDPOINT       = os.getenv("ANOMALY_TAGGING_ENDPOINT")
 
 # Параметры обучения
 TRAIN_LOOKBACK_DAYS = 30          # обучаем на данных за последние 30 дней
 RETRAIN_DAY_OF_WEEK = 6           # воскресенье (0=пн, 6=вс)
-CONTAMINATION = 0.05              # ожидаемая доля аномалий (5%)
-N_ESTIMATORS = 100                # количество деревьев
+CONTAMINATION       = 0.05        # ожидаемая доля аномалий (5%)
+N_ESTIMATORS        = 100         # количество деревьев
 
 # Параметры детекции
-ANOMALY_THRESHOLD = -0.2          # порог score_samples (ниже -> аномалия)
-                                  # можно не использовать, полагаясь на predict
-
-RECORDS_THRESHOLD = 50 # необходимо минимум 50 записей в БД для одного модуля для проведения
-                       # обучения на этом модуле
-
-MQTT_BROKER = "localhost"  
-MQTT_PORT = 1883
-MQTT_TOPIC = "rpi/send_message/remote"
+ANOMALY_THRESHOLD   = -0.2        # порог (ниже -> аномалия) (значение параметра -1 <= x <= 1)
+RECORDS_THRESHOLD   = 50          # необходимо минимум 50 записей в БД для одного модуля для проведения
+                                  # обучения на этом модуле (рекомендуемый минимум)
 
 class DiagnosticModule:
 
@@ -55,7 +55,6 @@ class DiagnosticModule:
         self._mqtt_port = mqtt_port
         self._mqtt_topic = mqtt_topic
 
-        # MQTT клиент
         self._mqtt_client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
         self._mqtt_client.connect(self._mqtt_broker, self._mqtt_port, 60)
         self._mqtt_client.loop_start()
@@ -69,7 +68,6 @@ class DiagnosticModule:
     def shutdown(self) -> None:
         self._mqtt_client.loop_stop()
         self._mqtt_client.disconnect()
-
     
     def _need_retraining(self) -> bool:
         return datetime.today().weekday() == self._retrain_day_of_week
@@ -79,13 +77,13 @@ class DiagnosticModule:
         return str(base.with_suffix('.pkl')), str(base.with_suffix('_scaler.pkl'))
 
     def _fetch_module_ids(self) -> List[int]:
-        url = f"{self._base_api_url}/api/database/params/unique_modules"
+        url = f"{self._base_api_url}{FETCH_MODULE_IDS_ENDPOINT}"
         resp = requests.get(url, timeout=10)
         resp.raise_for_status()
         return resp.json() 
     
     def _fetch_diagnostic_data(self, module_id: int, hours_back: int, anomaly_flag: bool) -> List[Dict[str, Any]]:
-        url = (f"{self._base_api_url}/api/database/params"
+        url = (f"{self._base_api_url}{FETCH_DIAGNOSTIC_DATA_ENDPOINT}"
                f"?module_id={module_id}&time_interval={hours_back}&anomaly={anomaly_flag}")
         resp = requests.get(url, timeout=10)
         resp.raise_for_status()
@@ -94,7 +92,7 @@ class DiagnosticModule:
     def _save_anomaly_flag(self, module_id: int, record_ids: List[int]) -> None:
         if not record_ids:
             return
-        url = f"{self._base_api_url}/api/database/params/anomaly_tagging"
+        url = f"{self._base_api_url}{ANOMALY_TAGGING_ENDPOINT}"
         requests.post(url, json={'record_ids': record_ids}, timeout=5)
 
     def _send_alert(self, module_id: int, anomaly_records: List[Dict[str, Any]]) -> None:
@@ -204,7 +202,7 @@ class DiagnosticModule:
 
 
 if __name__ == "__main__":
-    diagnostic = DiagnosticModule(base_api_url="http://192.168.0.105:8080",
+    diagnostic = DiagnosticModule(base_api_url=BASE_API_URL,
                                   model_dir=MODEL_DIR,
                                   train_lookback_days=TRAIN_LOOKBACK_DAYS,
                                   retrain_day_of_week=RETRAIN_DAY_OF_WEEK,
