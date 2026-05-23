@@ -1,6 +1,5 @@
 #include "api.h"
 
-// Перепроверить конструктор
 API::API(DataBase &db_) : db(db_){}
 
 void API::run(int _port, bool multithreaded) {
