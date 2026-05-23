@@ -1,40 +1,40 @@
-import sqlite3
-import json
-from typing import Any, List, Dict, Tuple, Union, Optional
+from typing import List, Dict, Union, Optional
 from dataclasses import dataclass, field
 from contextlib import contextmanager
+import sqlite3
+import json
 
 SQLValue = Union[str, int, float, None]
-
 
 class DataBaseException(Exception):
     pass
 
 @dataclass
 class QueryResult:
-    rows: List[List[SQLValue]] = field(default_factory=list)
-    column_names: List[str] = field(default_factory=list)
+
+    _rows: List[List[SQLValue]] = field(default_factory=list)
+    _column_names: List[str] = field(default_factory=list)
     
     def empty(self) -> bool:
-        return len(self.rows) == 0
+        return len(self._rows) == 0
     
     def size(self) -> int:
-        return len(self.rows)
+        return len(self._rows)
     
     def get(self, row: int, col: Union[int, str]) -> SQLValue:
-        if row < 0 or row >= len(self.rows):
-            raise IndexError(f"Row {row} out of range (0-{len(self.rows)-1})")
+        if row < 0 or row >= len(self._rows):
+            raise IndexError(f"Row {row} out of range (0-{len(self._rows)-1})")
         
         if isinstance(col, int):
-            if col < 0 or col >= len(self.rows[row]):
-                raise IndexError(f"Column {col} out of range (0-{len(self.rows[row])-1})")
-            return self.rows[row][col]
+            if col < 0 or col >= len(self._rows[row]):
+                raise IndexError(f"Column {col} out of range (0-{len(self._rows[row])-1})")
+            return self._rows[row][col]
         
         elif isinstance(col, str):
-            if col not in self.column_names:
+            if col not in self._column_names:
                 raise DataBaseException(f"Column not found: {col}")
-            col_idx = self.column_names.index(col)
-            return self.rows[row][col_idx]
+            col_idx = self._column_names.index(col)
+            return self._rows[row][col_idx]
         
         else:
             raise TypeError(f"col must be int or str, got {type(col)}")
@@ -64,13 +64,13 @@ class QueryResult:
             return default
     
     def to_dict_list(self) -> List[Dict[str, SQLValue]]:
-        if not self.column_names:
+        if not self._column_names:
             return []
         
         result = []
-        for row in self.rows:
+        for row in self._rows:
             row_dict = {}
-            for i, col_name in enumerate(self.column_names):
+            for i, col_name in enumerate(self._column_names):
                 row_dict[col_name] = row[i] if i < len(row) else None
             result.append(row_dict)
         return result
@@ -79,7 +79,7 @@ class QueryResult:
         return json.dumps(self.to_dict_list(), indent=indent, default=str)
     
     def __repr__(self) -> str:
-        return f"QueryResult(rows={len(self.rows)}, cols={len(self.column_names)})"
+        return f"QueryResult(rows={len(self._rows)}, cols={len(self._column_names)})"
 
 class IDataBase:
     
@@ -590,9 +590,3 @@ class Database(IDataBase):
     def delete_table_by_name(self, name : str):
         sql = "DROP TABLE " + name
         self.execute_request(sql)
-
-# if __name__ == "__main__":
-#     db = Database("Data/users_database.db")
-#     db.clear_servers_table()
-#     db.clear_capabilities_table()
-    
