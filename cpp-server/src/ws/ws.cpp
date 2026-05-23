@@ -1,8 +1,9 @@
 #include "ws.hpp"
 
-WebSocketClient::WebSocketClient(const std::string& token, const std::string& server_url, DataBase &_db, ScenarioEngine &_se)
-    : m_token(token), m_server_url(server_url), m_reconnect_delay(5), m_connected(false), db(_db), 
-      scenarioHandler(_se) {
+WebSocketClient::WebSocketClient(const std::string& token, const std::string& server_url, 
+                                 DataBase &_db, ScenarioHandler &_sh)
+    : m_token(token), m_server_url(server_url), m_reconnect_delay(5), 
+      m_connected(false), db(_db), scenarioHandler(_sh) {
     
     m_client.init_asio();
     

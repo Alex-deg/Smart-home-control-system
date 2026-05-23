@@ -4,8 +4,8 @@
 #include <sqlite3.h>
 #include <iostream>
 #include <variant>
-#include <vector>
 #include <string>
+#include <vector>
 
 using json = nlohmann::json;
 using SQLValue = std::variant<std::string, int, double, long long>;
@@ -30,11 +30,8 @@ public:
 };
 
 class IDataBase{
-
-private:
     sqlite3 *db = nullptr;
     void close();
-
 protected:
     void executeRequest(const std::string &sql);
     void executeRequest(const std::string& sql, 

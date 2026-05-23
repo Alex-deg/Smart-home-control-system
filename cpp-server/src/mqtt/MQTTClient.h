@@ -1,15 +1,20 @@
 #pragma once
 
-#include "../scenario-handler/ScenarioEngine.hpp"
+#include "../scenario-handler/ScenarioHandler.hpp"
 #include "../../include/httplib.h"
 #include "../database/DataBase.h"
 #include <condition_variable>
 #include <mosquitto.h>
 #include <functional>
-#include <string>
-#include <vector>
-#include <thread>
+#include <iostream>
+#include <cstring>
+#include <iomanip>
+#include <sstream>
 #include <atomic>
+#include <chrono>
+#include <string>
+#include <thread>
+#include <vector>
 #include <mutex>
 #include <queue>
 #include <map>
@@ -36,7 +41,7 @@ public:
     
     using SendCallback = std::function<void(const std::string& message)>;
 
-    explicit MQTTClient(DataBase& db, ScenarioEngine &se);
+    explicit MQTTClient(DataBase& db, ScenarioHandler &sh);
     ~MQTTClient();
 
     bool connect(const std::string& host = "localhost", 
@@ -81,23 +86,25 @@ private:
     void loopThread();
     
 private:
-    struct mosquitto* mosq_;
-    DataBase& db_;
-    ScenarioEngine& scenarioHandler;
 
-    std::string client_id_;
-    std::string host_;
+    DataBase& db_;
+    ScenarioHandler& scenarioHandler;
+
     int port_;
+    std::string host_;
+    std::string client_id_;
+    struct mosquitto* mosq_;   
     
-    std::atomic<bool> connected_;
     std::atomic<bool> running_;
+    std::atomic<bool> connected_;
     
     std::mutex publish_mutex_;
     std::queue<std::tuple<std::string, std::string, int, bool>> publish_queue_;
     
-    std::thread loop_thread_;
     std::mutex loop_mutex_;
+    std::thread loop_thread_;
     std::condition_variable loop_cv_;   
+    
     SendCallback websocket_send;
 
     std::unique_ptr<httplib::Client> HTTPClient = nullptr;

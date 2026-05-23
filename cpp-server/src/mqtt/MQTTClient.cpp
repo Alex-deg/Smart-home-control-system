@@ -1,9 +1,4 @@
 #include "MQTTClient.h"
-#include <iostream>
-#include <cstring>
-#include <chrono>
-#include <iomanip>
-#include <sstream>
 
 // Генерация уникального ID клиента
 std::string generateClientId() {
@@ -14,8 +9,8 @@ std::string generateClientId() {
     return ss.str();
 }
 
-MQTTClient::MQTTClient(DataBase& db, ScenarioEngine &se) 
-    : db_(db), scenarioHandler(se), mosq_(nullptr), connected_(false), running_(false) {
+MQTTClient::MQTTClient(DataBase& db, ScenarioHandler &sh) 
+    : db_(db), scenarioHandler(sh), mosq_(nullptr), connected_(false), running_(false) {
     
     client_id_ = generateClientId();
     HTTPClient = std::make_unique<httplib::Client>(BASE_API_URL);
@@ -288,7 +283,7 @@ void MQTTClient::setSendCallback(SendCallback callback) {
 
 
 void MQTTClient::reEvaluationScenarios(const std::string& param_name, double param_value){
-    
+
     std::vector<int> triggeredScenarios = scenarioHandler.updateParameter(param_name, param_value);
             
     for (auto &&tsID : triggeredScenarios){
