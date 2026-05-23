@@ -1,15 +1,18 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Body
+from dotenv import load_dotenv
 from typing import Dict
+import database_worker
+import uvicorn
+import asyncio
 import uuid
 import json
-import uvicorn
-import database_worker
-import asyncio
+import os
+
+load_dotenv(".env") 
+
+path_to_db = os.getenv("PATH_TO_DB")
 
 app = FastAPI()
-
-path_to_db = "Data/users_database.db"
-
 db = database_worker.Database(path_to_db)
 
 active_connections: Dict[str, WebSocket] = {}
@@ -30,7 +33,6 @@ async def auth(login : str = Body(...), password : str = Body(...)):
 @app.post("/api/registration")
 async def registration(login : str = Body(...), password : str = Body(...)):
     db.add_user(login, password)
-    # Мб при создании чего-либо возвращать id созданной записи?
     return "success"
 
 @app.get("/api/users/{user_id}/servers")
@@ -158,6 +160,7 @@ async def add_scenario_and_send(user_id: int, server_id : int, scenario_name : s
 @app.get("/api/get_act_info/{act_id}")
 async def get_act_info(act_id : int):
     return db.get_act_info(act_id)
+
 
 
 @app.websocket("/ws/bind_server/{server_token}")
