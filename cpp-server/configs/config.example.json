@@ -1,0 +1,22 @@
+{
+    
+    "CPP_CORE_SETTINGS" : {
+        "PATH_TO_DATABASE" : "database.db",
+        "API_PORT" : 8080
+    },
+
+    "REMOTE_SERVER_SETTINGS": {
+        "REMOTE_SERVER_IP" : "x.x.x.x",
+        "REMOTE_SERVER_API_PORT" : 8000,
+        "ENDPOINTS" : {
+            "WS_CONNECTION_BIND_ENDPOINT" : "/bind_server",
+            "GET_ACT_INFO_ENDPOINT" : "/get_action_info"
+        }
+    },
+
+    "MQTT_SETTINGS" : {
+        "MQTT_BROKER_IP" : "x.x.x.x",
+        "MQTT_BROKER_PORT" : 1883
+    }
+    
+}
