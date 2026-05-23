@@ -18,8 +18,8 @@ MQTTClient::MQTTClient(DataBase& db, ScenarioEngine &se)
     : db_(db), scenarioHandler(se), mosq_(nullptr), connected_(false), running_(false) {
     
     client_id_ = generateClientId();
-    
-    // Инициализация библиотеки (один раз на всю программу)
+    HTTPClient = std::make_unique<httplib::Client>(BASE_API_URL);
+
     static bool lib_initialized = false;
     if (!lib_initialized) {
         mosquitto_lib_init();
@@ -66,13 +66,6 @@ bool MQTTClient::connect(const std::string& host, int port, int keepalive) {
     
     std::cout << "Connecting to MQTT broker at " << host << ":" << port << std::endl;
     
-    // Установка Last Will & Testament (опционально)
-    std::string lwt_topic = "system/status";
-    std::string lwt_message = R"({"client_id":")" + client_id_ + R"(","status":"offline"})";
-    mosquitto_will_set(mosq_, lwt_topic.c_str(), 
-                       lwt_message.size(), lwt_message.c_str(), 1, true);
-    
-    // Подключение
     int rc = mosquitto_connect(mosq_, host_.c_str(), port_, keepalive);
     if (rc != MOSQ_ERR_SUCCESS) {
         std::cerr << "Failed to initiate connection: " << mosquitto_strerror(rc) << std::endl;
@@ -83,12 +76,7 @@ bool MQTTClient::connect(const std::string& host, int port, int keepalive) {
 }
 
 void MQTTClient::disconnect() {
-    if (mosq_ && connected_) {
-        // Отправляем сообщение о отключении
-        std::string topic = "system/status";
-        std::string message = R"({"client_id":")" + client_id_ + R"(","status":"disconnecting"})";
-        publish(topic, message, 1, true);
-        
+    if (mosq_ && connected_) {      
         mosquitto_disconnect(mosq_);
         connected_ = false;
     }
@@ -102,6 +90,7 @@ void MQTTClient::publish(const std::string& topic,
                         const std::string& message, 
                         int qos, 
                         bool retain) {
+    
     if (!connected_) {
         std::cerr << "Not connected to MQTT broker. Queueing message." << std::endl;
         std::lock_guard<std::mutex> lock(publish_mutex_);
@@ -113,17 +102,16 @@ void MQTTClient::publish(const std::string& topic,
                                message.size(), message.c_str(), qos, retain);
     if (rc != MOSQ_ERR_SUCCESS) {
         std::cerr << "Failed to publish to " << topic << ": " << mosquitto_strerror(rc) << std::endl;
-        
         // Сохраняем в очередь для повторной отправки
         std::lock_guard<std::mutex> lock(publish_mutex_);
         publish_queue_.push({topic, message, qos, retain});
     } else {
-        std::cout << "Message has been published" << std::endl;
-        saveMessageToDB(topic, message, false); // false = исходящее
+        std::cout << "Message has been published!" << std::endl;
     }
 }
 
 void MQTTClient::subscribe(const std::string& topic, int qos) {
+
     if (!connected_) {
         std::cerr << "Cannot subscribe: not connected" << std::endl;
         return;
@@ -146,8 +134,6 @@ void MQTTClient::unsubscribe(const std::string& topic) {
     }
 }
 
-// ==================== CALLBACK ОБРАБОТЧИКИ ====================
-
 void MQTTClient::on_connect(struct mosquitto* mosq, void* obj, int rc) {
     
     MQTTClient* client = static_cast<MQTTClient*>(obj);
@@ -157,15 +143,10 @@ void MQTTClient::on_connect(struct mosquitto* mosq, void* obj, int rc) {
         client->connected_ = true;
                 
         // Подписываемся на системные топики
-        client->subscribe("rpi/database/save/telemetry", 1);     // Для сохранения данных с датчиков в БД (esp отдает данные серверу)
-        client->subscribe("rpi/database/save/params", 1);     // Для сохранения данных с датчиков в БД (esp отдает данные серверу)
-        client->subscribe("rpi/database/get/telemetry", 1);      // Для получения данных с БД (esp зпрашивает данные у сервера)
-        client->subscribe("rpi/send_message/remote", 1);  // Для отправки ответа пользователю на его команду (esp отдает данные серверу)
-                
-        // Вызываем пользовательский callback
-        if (client->on_connect_callback_) {
-            client->on_connect_callback_();
-        }
+        client->subscribe("rpi/database/save/telemetry", 1);   // Для сохранения данных с датчиков в БД
+        client->subscribe("rpi/database/save/params", 1);      // Для сохранения диагностических в БД
+        client->subscribe("rpi/database/get/telemetry", 1);    // Для получения данных с датчиков из БД
+        client->subscribe("rpi/send_message/remote", 1);       // Для отправки ответа серверу на команду
         
         // Отправляем сообщения из очереди
         std::lock_guard<std::mutex> lock(client->publish_mutex_);
@@ -176,14 +157,13 @@ void MQTTClient::on_connect(struct mosquitto* mosq, void* obj, int rc) {
             int result = mosquitto_publish(mosq, nullptr, topic.c_str(), 
                                           message.size(), message.c_str(), qos, retain);
             if (result == MOSQ_ERR_SUCCESS) {
-                client->saveMessageToDB(topic, message, false);
+                std::cout << "Successfully published!";
             }
         }
         
     } else {
         std::cerr << "Failed to connect to MQTT broker: " << mosquitto_connack_string(rc) << std::endl;
         client->connected_ = false;
-        
         // Пытаемся переподключиться через 5 секунд
         std::this_thread::sleep_for(std::chrono::seconds(5));
         client->reconnect();
@@ -228,9 +208,10 @@ void MQTTClient::on_unsubscribe(struct mosquitto* mosq, void* obj, int mid) {
     std::cout << "Successfully unsubscribed from topic" << std::endl;
 }
 
-// ==================== ВНУТРЕННИЕ МЕТОДЫ ====================
+
 
 void MQTTClient::handleMessage(const struct mosquitto_message* msg) {
+
     if (!msg || !msg->payload) return;
     
     std::string topic(msg->topic);
@@ -238,20 +219,13 @@ void MQTTClient::handleMessage(const struct mosquitto_message* msg) {
     
     std::cout << "Received message on topic: " << topic << std::endl;
     std::cout << "Payload: " << payload << std::endl;
-    
-    // Сохраняем в БД
-    saveMessageToDB(topic, payload, true); // true = входящее
-    
+        
     // Обрабатываем сообщение
     processIncomingMessage(topic, payload);
-    
-    // Вызываем пользовательский callback
-    if (on_message_callback_) {
-        on_message_callback_(topic, payload);
-    }
 }
 
 void MQTTClient::reconnect() {
+
     std::cout << "Attempting to reconnect..." << std::endl;
     
     disconnect();
@@ -266,19 +240,7 @@ void MQTTClient::reconnect() {
     }
 }
 
-void MQTTClient::saveMessageToDB(const std::string& topic, 
-                                const std::string& payload, 
-                                bool incoming) {
-    // try {
-    //     db_.addMQTTMessage(topic, payload, incoming);        
-    // } catch (const std::exception& e) {
-    //     std::cerr << "Failed to save MQTT message to DB: " << e.what() << std::endl;
-    // }
-
-}
-
-MQTTClient::Topics MQTTClient::convertStringTopicToEnum(const std::string &topic)
-{
+MQTTClient::Topics MQTTClient::convertStringTopicToEnum(const std::string &topic) {
     if (topic == "rpi/database/save/telemetry")
         return Topics::DB_SAVE_TELEMETRY;
     if (topic == "rpi/database/save/params")
@@ -320,18 +282,38 @@ void MQTTClient::loopThread() {
     }
 }
 
-void MQTTClient::setOnConnectCallback(std::function<void()> callback) {
-    on_connect_callback_ = callback;
+void MQTTClient::setSendCallback(SendCallback callback) {
+    websocket_send = callback;
 }
 
-void MQTTClient::setOnMessageCallback(MessageCallback callback) {
-    on_message_callback_ = callback;
-}
 
-// ==================== ИНТЕГРАЦИЯ С СИСТЕМОЙ ====================
+void MQTTClient::reEvaluationScenarios(const std::string& param_name, double param_value){
+    
+    std::vector<int> triggeredScenarios = scenarioHandler.updateParameter(param_name, param_value);
+            
+    for (auto &&tsID : triggeredScenarios){
+        std::vector<long long> actIDs = db_.getScenariosActs(tsID);
+        for (auto &&actID : actIDs){ 
+            if (auto res = HTTPClient->Get(GET_ACT_INFO_ENDPOINT + "/" + std::to_string(actID))) {
+                if (res->status == 200) {
+                    std::string response = res->body;
+                    json actInfo = json::parse(response);
+                    json message;
+                    message["request_id"] = -1; // stub, not good solution in general
+                    message["payload"] = actInfo["command"];
+                    publish(actInfo["mqtt_topic"], message.dump(), 1);
+                } else {
+                    std::cout << "Ошибка HTTP: " << res->status << std::endl;
+                }
+            } else {
+                std::cout << "Не удалось подключиться к серверу" << std::endl;
+            }
+        }
+    }
+}
 
 void MQTTClient::processIncomingMessage(const std::string& topic, 
-                                       const std::string& payload) {
+                                        const std::string& payload) {
 
     json data = json::parse(payload);
     Topics t = convertStringTopicToEnum(topic);
@@ -340,28 +322,7 @@ void MQTTClient::processIncomingMessage(const std::string& topic,
     case Topics::DB_SAVE_TELEMETRY:
         try{
             db_.addTelemetry(data["module_id"], data["param_name"], data["param_value"], time(NULL), data["meas_unit"]);
-            std::vector<int> triggeredScenarios = scenarioHandler.updateParameter(data["param_name"], data["param_value"]);
-            httplib::Client client(BASE_API_URL); // вынести в конструктор
-            for (auto &&tsID : triggeredScenarios){
-                std::vector<long long> actIDs = db_.getScenariosActs(tsID);
-                for (auto &&actID : actIDs){ 
-                    if (auto res = client.Get("/api/get_act_info/" + std::to_string(actID))) {
-                        if (res->status == 200) {
-                            std::string response = res->body;
-                            json actInfo = json::parse(response);
-                            json message;
-                            message["request_id"] = -1; // stub, not good solution in general
-                            message["payload"] = actInfo["command"];
-                            publish(actInfo["mqtt_topic"], message.dump(), 1);
-                            std::cout << "Command = " << actInfo["command"] << " has been published into " << actInfo["mqtt_topic"] << std::endl;
-                        } else {
-                            std::cout << "Ошибка HTTP: " << res->status << std::endl;
-                        }
-                    } else {
-                        std::cout << "Не удалось подключиться к серверу" << std::endl;
-                    }
-                }
-            }
+            reEvaluationScenarios(data["param_name"], data["param_value"]);
         }
         catch(std::runtime_error &err){
             std::cerr << err.what() << std::endl;
@@ -377,10 +338,7 @@ void MQTTClient::processIncomingMessage(const std::string& topic,
         break;
     case Topics::REMOTE_SEND:
         try{
-            json response;
-            response["request_id"] = data["request_id"];
-            response["payload"] = data["payload"];
-            websocket_send(response.dump());
+            websocket_send(data.dump());
         }
         catch(std::runtime_error &err){
             std::cerr << err.what() << std::endl;
