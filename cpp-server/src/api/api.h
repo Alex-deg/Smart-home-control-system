@@ -14,9 +14,10 @@ private:
     DataBase &db;
     
     crow::response getTelemetry(long long module_id, const std::string &param_name, int time_interval);
+    crow::response anomalyTagging(std::vector<long long> record_ids);
     crow::response getModuleParams(long long module_id, int time_interval, bool with_anomaly);
     crow::response getUniqueModuleIDs();
-    crow::response anomalyTagging(std::vector<long long> record_ids);
+    
     void setupRoutes();
 
 public:

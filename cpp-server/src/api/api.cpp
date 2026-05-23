@@ -30,6 +30,25 @@ crow::response API::getTelemetry(long long module_id, const std::string &param_n
     return res;
 }
 
+crow::response API::anomalyTagging(std::vector<long long> record_ids)
+{
+    crow::response res;
+    res.add_header("Content-Type", "application/json; charset=utf-8");
+    json resp;
+    try{
+        db.anomalyTagging(record_ids);
+        resp["status"] = true;
+        resp["message"] = "Получение данных прошло успешно";
+    }
+    catch(DataBaseException &e){
+        std::cerr << "Error: " << e.what() << std::endl;
+        resp["status"] = false;
+        resp["message"] = "Получение данных прошло с ошибкой";
+    }            
+    res.write(json(resp).dump(2));           
+    return res;
+}
+
 crow::response API::getModuleParams(long long module_id, int time_interval, bool with_anomaly)
 {
     crow::response res;
@@ -58,25 +77,6 @@ crow::response API::getUniqueModuleIDs()
         auto params = db.getUniqueModuleIDs();
         res.write(json(params).dump(2));
         return res;
-    }
-    catch(DataBaseException &e){
-        std::cerr << "Error: " << e.what() << std::endl;
-        resp["status"] = false;
-        resp["message"] = "Получение данных прошло с ошибкой";
-    }            
-    res.write(json(resp).dump(2));           
-    return res;
-}
-
-crow::response API::anomalyTagging(std::vector<long long> record_ids)
-{
-    crow::response res;
-    res.add_header("Content-Type", "application/json; charset=utf-8");
-    json resp;
-    try{
-        db.anomalyTagging(record_ids);
-        resp["status"] = true;
-        resp["message"] = "Получение данных прошло успешно";
     }
     catch(DataBaseException &e){
         std::cerr << "Error: " << e.what() << std::endl;
