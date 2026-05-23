@@ -75,7 +75,7 @@ QueryResult IDataBase::executeQuery(const std::string& sql,
                         sqlite3_column_text(stmt, i)));
                     break;
                 case SQLITE_NULL:
-                    row.push_back(std::string());  // Или специальное значение
+                    row.push_back(std::string()); 
                     break;
                 default:
                     row.push_back(std::string());

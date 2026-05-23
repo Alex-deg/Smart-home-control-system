@@ -1,11 +1,11 @@
 #pragma once
 
+#include <nlohmann/json.hpp>
 #include <sqlite3.h>
 #include <iostream>
+#include <variant>
 #include <vector>
 #include <string>
-#include <variant>
-#include <nlohmann/json.hpp>
 
 using json = nlohmann::json;
 using SQLValue = std::variant<std::string, int, double, long long>;
@@ -58,33 +58,35 @@ public:
     void rollback();
 
     void createTelemetryTable();
-    void createModuleParamsTable();
     void createScenariosTable();
+    void createModuleParamsTable();
     void createScenariosActsTable();
 
     void deleteTelemetryTable();
-    void deleteModuleParamsTable();
     void deleteScenariosTable();
+    void deleteModuleParamsTable();
     void deleteScenariosActsTable();
 
     void clearTelemetryTable();
-    void clearModuleParamsTable();
     void clearScenariosTable();
+    void clearModuleParamsTable();
     void clearScenariosActsTable();
 
-    void addTelemetry(long long module_id, const std::string& param_name, 
+    void addTelemetry(long long module_id, const std::string& param_name,
                       double param_value, int timestamp, const std::string& meas_unit = "");
-    void addModuleParams(long long module_id, double module_temp, int free_bytes, 
+    void addModuleParams(long long module_id, double module_temp, int free_bytes,
                          int timestamp, bool anomaly = false);
-    long long addScenario(const std::string& name, const std::string& condition);
     void addScenariosAct(long long scenario_id, long long act_id);
+    long long addScenario(const std::string& name, const std::string& condition);
 
-    std::vector<json> getTelemtry(long long module_id, const std::string& param_name, 
+    std::vector<json> getTelemtry(long long module_id, const std::string& param_name,
                                   int time_interval);
     std::vector<json> getModuleParams(long long module_id, int time_interval, bool with_anomalies);
-    std::vector<long long> getScenariosActs(long long scenario_id);
-    void anomalyTagging(std::vector<long long> record_ids);  
     std::vector<json> getUniqueModuleIDs();
+    std::vector<long long> getScenariosActs(long long scenario_id);
+
+    void anomalyTagging(std::vector<long long> record_ids);
+
     void deleteTableByName(const std::string& name);
 
 };
