@@ -382,7 +382,7 @@ void DataBase::addModuleParams(long long module_id, double module_temp, int free
 
     // Добавление в таблицу с телеметрией
     std::string sql = R"(
-        INSERT INTO telemetry(module_id, module_temp, free_bytes, timestamp, anomaly)
+        INSERT INTO modules_params(module_id, module_temp, free_bytes, timestamp, anomaly)
         VALUES (?, ?, ?, ?, ?)
     )";
     executeRequest(sql, {module_id, module_temp, free_bytes, timestamp, anomaly});
@@ -462,8 +462,8 @@ std::vector<json> DataBase::getModuleParams(long long module_id, int time_interv
     for(int i = 0; i < response.size(); i++){
         curParams["id"] = response.get<long long>(i, "id");
         curParams["module_temp"] = response.get<double>(i, "module_temp");
-        curParams["free_bytes"] = response.get<double>(i, "free_bytes");
-        curParams["timestamp"] = response.get<double>(i, "timestamp");
+        curParams["free_bytes"] = response.get<long long>(i, "free_bytes");
+        curParams["timestamp"] = response.get<long long>(i, "timestamp");
         moduleParams.push_back(curParams);
     }
     return moduleParams;
@@ -489,7 +489,7 @@ void DataBase::anomalyTagging(std::vector<long long> record_ids){
     std::string sql = R"(
         UPDATE modules_params
         SET anomaly = 1
-        WHERE id = ?
+        WHERE id = ?;
     )";
     for (auto &&id : record_ids){
         executeRequest(sql, {id});
@@ -500,13 +500,13 @@ std::vector<json> DataBase::getUniqueModuleIDs()
 {
     std::vector<json> ids;
     std::string sql = R"(
-        SELECT DISTINCT module_id FROM modules_params
+        SELECT DISTINCT module_id FROM modules_params;
     )";
     QueryResult response = executeQuery(sql);
     json curID;
     for (int i = 0; i < response.size(); i++){
         curID["id"] = response.get<long long>(i, "module_id");
-        ids.push_back(ids);
+        ids.push_back(curID);
     }
     return ids;
 }
