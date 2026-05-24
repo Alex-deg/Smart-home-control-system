@@ -38,7 +38,7 @@ TEST_F(IDatabaseTest, InsertData) {
     db.executeRequest("CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)");
     db.executeRequest("INSERT INTO users (name) VALUES (?)", {"Alice"});
     auto result = db.executeQuery("SELECT COUNT(*) as cnt FROM users");
-    EXPECT_EQ(result.get<int>(0, "cnt"), 1);
+    EXPECT_EQ(result.get<long long>(0, "cnt"), 1);
 }
 
 TEST_F(IDatabaseTest, SelectData) {
@@ -64,7 +64,7 @@ TEST_F(IDatabaseTest, DeleteData) {
     db.executeRequest("INSERT INTO users (name) VALUES (?)", {"Alice"});
     db.executeRequest("DELETE FROM users WHERE name = ?", {"Alice"});
     auto result = db.executeQuery("SELECT COUNT(*) as cnt FROM users");
-    EXPECT_EQ(result.get<int>(0, "cnt"), 0);
+    EXPECT_EQ(result.get<long long>(0, "cnt"), 0);
 }
 
 TEST_F(IDatabaseTest, HandleSqlError) {
@@ -108,10 +108,10 @@ TEST_F(IDatabaseTest, QueryResultAccessMethods) {
     
     auto result = db.executeQuery("SELECT id, name, age FROM users");
     
-    EXPECT_EQ(result.get<int>(0, 0), 1);
+    EXPECT_EQ(result.get<long long>(0, 0), 1);
     EXPECT_EQ(result.get<std::string>(0, 1), "Alice");
-    EXPECT_EQ(result.get<int>(0, 2), 25);
-    EXPECT_EQ(result.get<int>(0, "id"), 1);
+    EXPECT_EQ(result.get<long long>(0, 2), 25);
+    EXPECT_EQ(result.get<long long>(0, "id"), 1);
     EXPECT_EQ(result.get<std::string>(0, "name"), "Alice");
-    EXPECT_EQ(result.get<int>(0, "age"), 25);
+    EXPECT_EQ(result.get<long long>(0, "age"), 25);
 }
