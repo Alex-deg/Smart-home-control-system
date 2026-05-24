@@ -1,3 +1,4 @@
+#include "../SIMPLE_LOGGER/liblogger/Logger.h"
 #include "include/ScenarioHandler.hpp"
 #include "include/JSONHandler.hpp"
 #include "include/DataBase.hpp"
@@ -6,8 +7,10 @@
 #include "include/ws.hpp"
 #include <nlohmann/json.hpp>
 #include <iostream>
+#include <memory>
 
 using json = nlohmann::json;
+using namespace liblog;
 
 namespace Settings{
 
@@ -16,6 +19,8 @@ namespace Settings{
 #else
     bool DEBUG = true;
 #endif
+
+    std::string LOG_PATH;
 
     std::string PATH_TO_DATABASE;
     int API_PORT;
@@ -78,10 +83,14 @@ int main(){
     DataBase db;
     db.open(Settings::PATH_TO_DATABASE);
 
+    // logger for console
+    std::shared_ptr<Logger> logger = std::make_shared<Logger>(liblog::INFO);
+
     ScenarioHandler sh;
 
     std::shared_ptr<MQTTClient> mqtt = std::make_shared<MQTTClient>(db, sh, Settings::REMOTE_SERVER_BASE_API_URL, 
                                                                             Settings::GET_ACT_INFO_ENDPOINT,
+                                                                            logger,
                                                                             Settings::DEBUG);
 
     std::cout << Settings::MQTT_BROKER_IP << " " << Settings::MQTT_BROKER_PORT << std::endl;
