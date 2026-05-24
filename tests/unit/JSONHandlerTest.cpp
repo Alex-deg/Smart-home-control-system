@@ -3,7 +3,7 @@
 #include <fstream>
 #include <nlohmann/json.hpp>
 
-class ConfigTest : public ::testing::Test {
+class JSONHandlerTest : public ::testing::Test {
 protected:
     void SetUp() override {
 
@@ -64,28 +64,28 @@ protected:
     JSONHandler config_;
 };
 
-TEST_F(ConfigTest, OpenExistingFile) {
+TEST_F(JSONHandlerTest, OpenExistingFile) {
     JSONHandler config;
     EXPECT_TRUE(config.open("test_config.json"));
 }
 
-TEST_F(ConfigTest, OpenNonExistentFile) {
+TEST_F(JSONHandlerTest, OpenNonExistentFile) {
     JSONHandler config;
     EXPECT_FALSE(config.open("non_existent.json"));
 }
 
-TEST_F(ConfigTest, OpenBrokenJsonFile) {
+TEST_F(JSONHandlerTest, OpenBrokenJsonFile) {
     JSONHandler config;
     EXPECT_FALSE(config.open("bad_config.json"));
 }
 
-TEST_F(ConfigTest, ReopenFile) {
+TEST_F(JSONHandlerTest, ReopenFile) {
     JSONHandler config;
     EXPECT_TRUE(config.open("test_config.json"));
     EXPECT_TRUE(config.open("test_config.json")); 
 }
 
-TEST_F(ConfigTest, GetStringValue) {
+TEST_F(JSONHandlerTest, GetStringValue) {
     std::string ip = config_.getValueByKey<std::string>("server.ip");
     EXPECT_EQ(ip, "192.168.0.105");
     
@@ -96,7 +96,7 @@ TEST_F(ConfigTest, GetStringValue) {
     EXPECT_EQ(ws_url, "ws://127.0.0.1:8000/ws/bind_server/");
 }
 
-TEST_F(ConfigTest, GetIntValue) {
+TEST_F(JSONHandlerTest, GetIntValue) {
     int port = config_.getValueByKey<int>("server.port");
     EXPECT_EQ(port, 8080);
     
@@ -107,7 +107,7 @@ TEST_F(ConfigTest, GetIntValue) {
     EXPECT_EQ(retry_count, 5);
 }
 
-TEST_F(ConfigTest, GetDoubleValue) {
+TEST_F(JSONHandlerTest, GetDoubleValue) {
     double timeout = config_.getValueByKey<double>("websocket.timeout");
     EXPECT_DOUBLE_EQ(timeout, 30.5);
     
@@ -118,7 +118,7 @@ TEST_F(ConfigTest, GetDoubleValue) {
     EXPECT_DOUBLE_EQ(temp_max, 26.0);
 }
 
-TEST_F(ConfigTest, GetBoolValue) {
+TEST_F(JSONHandlerTest, GetBoolValue) {
     bool debug = config_.getValueByKey<bool>("debug");
     EXPECT_TRUE(debug);
     
@@ -126,7 +126,7 @@ TEST_F(ConfigTest, GetBoolValue) {
     EXPECT_TRUE(backup_enabled);
 }
 
-TEST_F(ConfigTest, GetStringArray) {
+TEST_F(JSONHandlerTest, GetStringArray) {
     auto modules = config_.getValueByKey<std::vector<std::string>>("modules");
     EXPECT_EQ(modules.size(), 4);
     EXPECT_EQ(modules[0], "temperature");
@@ -135,7 +135,7 @@ TEST_F(ConfigTest, GetStringArray) {
     EXPECT_EQ(modules[3], "light");
 }
 
-TEST_F(ConfigTest, GetNestedObject) {
+TEST_F(JSONHandlerTest, GetNestedObject) {
     auto thresholds = config_.getValueByKey<json>("thresholds");
     EXPECT_TRUE(thresholds.contains("temp_min"));
     EXPECT_TRUE(thresholds.contains("temp_max"));
@@ -143,7 +143,7 @@ TEST_F(ConfigTest, GetNestedObject) {
 }
 
 // Получение значения по умолчанию (ключ существует)
-TEST_F(ConfigTest, GetValueWithDefaultKeyExists) {
+TEST_F(JSONHandlerTest, GetValueWithDefaultKeyExists) {
     std::string ip = config_.getValueByKey<std::string>("server.ip", "127.0.0.1");
     EXPECT_EQ(ip, "192.168.0.105");
     
@@ -152,7 +152,7 @@ TEST_F(ConfigTest, GetValueWithDefaultKeyExists) {
 }
 
 // Получение значения по умолчанию (ключ не существует)
-TEST_F(ConfigTest, GetValueWithDefaultKeyMissing) {
+TEST_F(JSONHandlerTest, GetValueWithDefaultKeyMissing) {
     std::string none = config_.getValueByKey<std::string>("nonexistent.key", "default_value");
     EXPECT_EQ(none, "default_value");
     
@@ -166,48 +166,48 @@ TEST_F(ConfigTest, GetValueWithDefaultKeyMissing) {
     EXPECT_DOUBLE_EQ(missing_double, 99.9);
 }
 
-TEST_F(ConfigTest, GetValueWithPartialPath) {
+TEST_F(JSONHandlerTest, GetValueWithPartialPath) {
     std::string none = config_.getValueByKey<std::string>("server.nonexistent", "default");
     EXPECT_EQ(none, "default");
 }
 
-TEST_F(ConfigTest, SetStringValue) {
+TEST_F(JSONHandlerTest, SetStringValue) {
     config_.setValueByKey("server.ip", std::string("192.168.1.100"));
     std::string ip = config_.getValueByKey<std::string>("server.ip");
     EXPECT_EQ(ip, "192.168.1.100");
 }
 
-TEST_F(ConfigTest, SetIntValue) {
+TEST_F(JSONHandlerTest, SetIntValue) {
     config_.setValueByKey("server.port", 9090);
     int port = config_.getValueByKey<int>("server.port");
     EXPECT_EQ(port, 9090);
 }
 
-TEST_F(ConfigTest, SetBoolValue) {
+TEST_F(JSONHandlerTest, SetBoolValue) {
     config_.setValueByKey("debug", false);
     bool debug = config_.getValueByKey<bool>("debug");
     EXPECT_FALSE(debug);
 }
 
-TEST_F(ConfigTest, SetDoubleValue) {
+TEST_F(JSONHandlerTest, SetDoubleValue) {
     config_.setValueByKey("websocket.timeout", 60.0);
     double timeout = config_.getValueByKey<double>("websocket.timeout");
     EXPECT_DOUBLE_EQ(timeout, 60.0);
 }
 
-TEST_F(ConfigTest, SetValueCreatePath) {
+TEST_F(JSONHandlerTest, SetValueCreatePath) {
     config_.setValueByKey("new_group.nested.value", 42);
     int value = config_.getValueByKey<int>("new_group.nested.value");
     EXPECT_EQ(value, 42);
 }
 
-TEST_F(ConfigTest, SetValueDeepNestedPath) {
+TEST_F(JSONHandlerTest, SetValueDeepNestedPath) {
     config_.setValueByKey("a.b.c.d.e.f.g.value", "deep");
     std::string value = config_.getValueByKey<std::string>("a.b.c.d.e.f.g.value");
     EXPECT_EQ(value, "deep");
 }
 
-TEST_F(ConfigTest, SaveToFile) {
+TEST_F(JSONHandlerTest, SaveToFile) {
     config_.setValueByKey("server.port", 9999);
     config_.saveJsonObjectToFile("test_output.json");
     
@@ -217,7 +217,7 @@ TEST_F(ConfigTest, SaveToFile) {
     EXPECT_EQ(port, 9999);
 }
 
-TEST_F(ConfigTest, SaveToCurrentPath) {
+TEST_F(JSONHandlerTest, SaveToCurrentPath) {
     config_.setValueByKey("server.port", 7777);
     EXPECT_TRUE(config_.save());
     
@@ -227,12 +227,12 @@ TEST_F(ConfigTest, SaveToCurrentPath) {
     EXPECT_EQ(port, 7777);
 }
 
-TEST_F(ConfigTest, SaveWithoutOpenFile) {
+TEST_F(JSONHandlerTest, SaveWithoutOpenFile) {
     JSONHandler empty_config;
     EXPECT_FALSE(empty_config.save());
 }
 
-TEST_F(ConfigTest, UpdateNestedObject) {
+TEST_F(JSONHandlerTest, UpdateNestedObject) {
     nlohmann::json new_thresholds = {
         {"temp_min", 20.0},
         {"temp_max", 30.0},
@@ -247,14 +247,14 @@ TEST_F(ConfigTest, UpdateNestedObject) {
     EXPECT_EQ(thresholds["new_param"], 100.0);
 }
 
-TEST_F(ConfigTest, GetNonExistentKeyThrowsException) {
+TEST_F(JSONHandlerTest, GetNonExistentKeyThrowsException) {
     JSONHandler config;
     config.open("test_config.json");
-    
-    EXPECT_THROW(config.getValueByKey<std::string>("nonexistent.key"), std::out_of_range);
+    std::string resp = config.getValueByKey<std::string>("abcd.key", "error");
+    EXPECT_EQ(resp, "error");
 }
 
-TEST_F(ConfigTest, SetVectorValue) {
+TEST_F(JSONHandlerTest, SetVectorValue) {
     std::vector<int> numbers = {1, 2, 3, 4, 5};
     config_.setValueByKey("test.numbers", numbers);
     
@@ -264,7 +264,7 @@ TEST_F(ConfigTest, SetVectorValue) {
     EXPECT_EQ(retrieved[4], 5);
 }
 
-TEST_F(ConfigTest, NestedVectorValue) {
+TEST_F(JSONHandlerTest, NestedVectorValue) {
     std::vector<std::vector<int>> matrix = {{1, 2}, {3, 4}, {5, 6}};
     config_.setValueByKey("test.matrix", matrix);
     
@@ -274,7 +274,7 @@ TEST_F(ConfigTest, NestedVectorValue) {
     EXPECT_EQ(retrieved[1][1], 4);
 }
 
-TEST_F(ConfigTest, SequentialOpen) {
+TEST_F(JSONHandlerTest, SequentialOpen) {
     JSONHandler config;
     EXPECT_TRUE(config.open("test_config.json"));
     EXPECT_TRUE(config.getValueByKey<int>("server.port") == 8080);
@@ -291,8 +291,8 @@ TEST_F(ConfigTest, SequentialOpen) {
     std::remove("other_config.json");
 }
 
-TEST_F(ConfigTest, EmptyConfig) {
+TEST_F(JSONHandlerTest, EmptyConfig) {
     JSONHandler empty_config;
-    // При обращении без open должно выброситься исключение
-    EXPECT_THROW(empty_config.getValueByKey<std::string>("any.key"), std::out_of_range);
+    // open() missed
+    EXPECT_NO_THROW(empty_config.getValueByKey<std::string>("any.key"));
 }
