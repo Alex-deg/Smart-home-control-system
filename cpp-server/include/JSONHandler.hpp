@@ -28,7 +28,8 @@ public:
     T getValueByKey(const std::string& key, const T& default_value = T{}) const {
         try {
             return getNestedValue(key).get<T>();
-        } catch (const std::exception&) {
+        } catch (const std::exception &e) {
+            std::cerr << e.what() << std::endl;
             return default_value;
         }
     }
