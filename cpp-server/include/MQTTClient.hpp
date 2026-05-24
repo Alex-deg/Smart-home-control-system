@@ -35,7 +35,7 @@ public:
     using SendCallback = std::function<void(const std::string& message)>;
 
     explicit MQTTClient(DataBase& db, ScenarioHandler &sh, const std::string& _base_api_url, 
-                        const std::string& _get_act_info_endpoint);
+                        const std::string& _get_act_info_endpoint, bool _debugFlag);
     ~MQTTClient();
 
     bool connect(const std::string& host = "localhost", 
@@ -80,6 +80,8 @@ private:
     void loopThread();
     
 private:
+
+    bool debugFlag;
 
     DataBase& db_;
     ScenarioHandler& scenarioHandler;

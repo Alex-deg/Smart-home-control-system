@@ -10,9 +10,9 @@ std::string generateClientId() {
 }
 
 MQTTClient::MQTTClient(DataBase& db, ScenarioHandler &sh, const std::string& _base_api_url, 
-                       const std::string& _get_act_info_endpoint) 
+                       const std::string& _get_act_info_endpoint, bool _debugFlag) 
     : db_(db), scenarioHandler(sh), mosq_(nullptr), connected_(false), running_(false),
-      base_api_url(_base_api_url), get_act_info_endpoint(_get_act_info_endpoint) {
+      base_api_url(_base_api_url), get_act_info_endpoint(_get_act_info_endpoint), debugFlag(_debugFlag) {
     
     client_id_ = generateClientId();
     HTTPClient = std::make_unique<httplib::Client>(base_api_url);

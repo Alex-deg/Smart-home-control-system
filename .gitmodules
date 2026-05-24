@@ -1,0 +1,3 @@
+[submodule "SIMPLE_LOGGER"]
+	path = SIMPLE_LOGGER
+	url = https://github.com/Alex-deg/SIMPLE_LOGGER.git

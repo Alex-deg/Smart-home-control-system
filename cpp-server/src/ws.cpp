@@ -1,9 +1,9 @@
 #include "../include/ws.hpp"
 
 WebSocketClient::WebSocketClient(const std::string& token, const std::string& server_url, 
-                                 DataBase &_db, ScenarioHandler &_sh)
+                                 DataBase &_db, ScenarioHandler &_sh, bool _debugFlag)
     : m_token(token), m_server_url(server_url), m_reconnect_delay(5), 
-      m_connected(false), db(_db), scenarioHandler(_sh) {
+      m_connected(false), db(_db), scenarioHandler(_sh), debugFlag(_debugFlag) {
     
     m_client.init_asio();
     
@@ -17,10 +17,14 @@ void WebSocketClient::connect() {
     websocketpp::lib::error_code ec;
     auto con = m_client.get_connection(m_server_url + m_token, ec);
     if (ec) {
-        std::cerr << "Ошибка подключения: " << ec.message() << std::endl;
+        std::cerr << "WebSocketClient::connect(): Ошибка подключения: " << ec.message() << std::endl;
+        if(debugFlag)
+            std::cout << "Connection establishing occured with error" << std::endl;
         // schedule_reconnect();
         return;
     }
+    if(debugFlag)
+        std::cout << "Connection establishing was successful" << std::endl;
     m_client.connect(con);
     m_client.run();
 }
@@ -32,7 +36,7 @@ void WebSocketClient::send_message(const std::string& message) {
         if (ec) {
             std::cerr << "Ошибка отправки: " << ec.message() << std::endl;
         } else {
-            std::cout << "[->] Отправлено: " << message << std::endl;
+            std::cout << "[=>] Отправлено: " << message << std::endl;
         }
     } else {
         std::cerr << "Соединение не активно, отправка невозможна" << std::endl;

@@ -1,13 +1,18 @@
 #include "../include/api.hpp"
 
-API::API(DataBase &db_) : db(db_){}
+API::API(DataBase &_db, bool _debugFlag) : db(_db), debugFlag(_debugFlag) {}
 
 void API::run(int _port, bool multithreaded) {
     setupRoutes();
     if (multithreaded) {
         app.port(_port).multithreaded().run();
+        if (debugFlag){
+            std::cout << "API has been launched in multithread mode on " << _port << " port" << std::endl;
+        }
     } else {
         app.port(_port).run();
+        if (debugFlag)
+            std::cout << "API has been launched in basic mode on " << _port << " port" << std::endl;
     }
 }
 
@@ -18,15 +23,19 @@ crow::response API::getTelemetry(long long module_id, const std::string &param_n
     json resp;
     try{
         auto telemetry = db.getTelemtry(module_id, param_name, time_interval);
-        res.write(json(telemetry).dump(2));  
+        res.write(json(telemetry).dump(2));
+        if(debugFlag)
+            std::cout << "Receiving telemetry was successful" << std::endl;
         return res;
     }
     catch(DataBaseException &e){
-        std::cerr << "Error: " << e.what() << std::endl;
+        std::cerr << "API::getTelemetry(): " << e.what() << std::endl;
         resp["status"] = false;
-        resp["message"] = "Получение данных прошло с ошибкой";
+        resp["message"] = "Получение телеметрии прошло с ошибкой";
+        if(debugFlag)
+            std::cout << "Receiving telemetry occured with error" << std::endl;
     }            
-    res.write(json(resp).dump(2));           
+    res.write(json(resp).dump(2));
     return res;
 }
 
@@ -38,12 +47,16 @@ crow::response API::anomalyTagging(std::vector<long long> record_ids)
     try{
         db.anomalyTagging(record_ids);
         resp["status"] = true;
-        resp["message"] = "Получение данных прошло успешно";
+        resp["message"] = "Отметка аномальных данных прошла успешно";
+        if(debugFlag)
+            std::cout << "Anomaly tagging was successful" << std::endl;
     }
     catch(DataBaseException &e){
-        std::cerr << "Error: " << e.what() << std::endl;
+        std::cerr << "API::anomalyTagging(): " << e.what() << std::endl;
         resp["status"] = false;
-        resp["message"] = "Получение данных прошло с ошибкой";
+        resp["message"] = "Отметка аномальных данных прошла с ошибкой";
+        if(debugFlag)
+            std::cout << "Anomaly tagging occured with error" << std::endl;
     }            
     res.write(json(resp).dump(2));           
     return res;
@@ -57,12 +70,16 @@ crow::response API::getModuleParams(long long module_id, int time_interval, bool
     try{
         auto params = db.getModuleParams(module_id, time_interval, with_anomaly);
         res.write(json(params).dump(2));
+        if(debugFlag)
+            std::cout << "Receiving diagnostic data was successful" << std::endl;
         return res;
     }
     catch(DataBaseException &e){
-        std::cerr << "Error: " << e.what() << std::endl;
+        std::cerr << "API::getModuleParams(): " << e.what() << std::endl;
         resp["status"] = false;
         resp["message"] = "Получение данных прошло с ошибкой";
+        if(debugFlag)
+            std::cout << "Receiving diagnostic data occured with error" << std::endl;
     }            
     res.write(json(resp).dump(2));           
     return res;
@@ -76,12 +93,16 @@ crow::response API::getUniqueModuleIDs()
     try{
         auto params = db.getUniqueModuleIDs();
         res.write(json(params).dump(2));
+        if(debugFlag)
+            std::cout << "Receiving unique module ids was successful" << std::endl;
         return res;
     }
     catch(DataBaseException &e){
-        std::cerr << "Error: " << e.what() << std::endl;
+        std::cerr << "API::getUniqueModuleIDs(): " << e.what() << std::endl;
         resp["status"] = false;
         resp["message"] = "Получение данных прошло с ошибкой";
+        if(debugFlag)
+            std::cout << "Receiving unique module ids occured with error" << std::endl;
     }            
     res.write(json(resp).dump(2));           
     return res;

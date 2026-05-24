@@ -11,6 +11,7 @@ private:
 
     crow::SimpleApp app;
     DataBase &db;
+    bool debugFlag;
     
     crow::response getTelemetry(long long module_id, const std::string &param_name, int time_interval);
     crow::response anomalyTagging(std::vector<long long> record_ids);
@@ -20,7 +21,7 @@ private:
     void setupRoutes();
 
 public:
-    explicit API(DataBase &db_);
+    explicit API(DataBase &_db, bool _debugFlag);
     void run(int _port = 8080, bool multithreaded = true);
 };
 

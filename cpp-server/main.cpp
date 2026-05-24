@@ -11,6 +11,12 @@ using json = nlohmann::json;
 
 namespace Settings{
 
+#ifdef NDEBUG
+    bool DEBUG = false;
+#else
+    bool DEBUG = true;
+#endif
+
     std::string PATH_TO_DATABASE;
     int API_PORT;
 
@@ -35,7 +41,8 @@ void ws_server_thr(std::shared_ptr<MQTTClient> mqtt_client, DataBase &db, Scenar
     else{
         std::cout << "TOKEN = " << server_token << std::endl;
     }
-    auto client = std::make_shared<WebSocketClient>(server_token, Settings::REMOTE_SERVER_BASE_API_URL + Settings::WS_CONNECTION_BIND_ENDPOINT, db, sh);
+    auto client = std::make_shared<WebSocketClient>(server_token, Settings::REMOTE_SERVER_BASE_API_URL + Settings::WS_CONNECTION_BIND_ENDPOINT, 
+                                                    db, sh, Settings::DEBUG);
     mqtt_client->setSendCallback([client](const std::string& message){
         client->send_message(message);
     });
@@ -74,7 +81,8 @@ int main(){
     ScenarioHandler sh;
 
     std::shared_ptr<MQTTClient> mqtt = std::make_shared<MQTTClient>(db, sh, Settings::REMOTE_SERVER_BASE_API_URL, 
-                                                                            Settings::GET_ACT_INFO_ENDPOINT);
+                                                                            Settings::GET_ACT_INFO_ENDPOINT,
+                                                                            Settings::DEBUG);
 
     std::cout << Settings::MQTT_BROKER_IP << " " << Settings::MQTT_BROKER_PORT << std::endl;
     if (!mqtt->connect(Settings::MQTT_BROKER_IP, Settings::MQTT_BROKER_PORT)) {
@@ -97,7 +105,7 @@ int main(){
 
     std::thread wsThread(ws_server_thr, mqtt, std::ref(db), std::ref(sh));
 
-    API api(db);
+    API api(db, Settings::DEBUG);
     std::thread api_thread([&api]() {
         std::cout << "Starting HTTP API server..." << std::endl;
         api.run(); 
