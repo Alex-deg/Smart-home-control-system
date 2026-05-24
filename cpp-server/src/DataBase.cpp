@@ -110,7 +110,7 @@ void IDataBase::close(){
 
 bool IDataBase::isTableExists(const std::string &table_name)
 {
-    QueryResult response = executeQuery("SELECT * FROM sqlite_sequence WHERE name = ?", {table_name});
+    QueryResult response = executeQuery("SELECT name FROM sqlite_master WHERE name = ?;", {table_name});
     return !response.empty();
 }
 
