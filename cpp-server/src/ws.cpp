@@ -1,30 +1,28 @@
 #include "../include/ws.hpp"
 
 WebSocketClient::WebSocketClient(const std::string& token, const std::string& server_url, 
-                                 DataBase &_db, ScenarioHandler &_sh, bool _debugFlag)
+                                 DataBase &_db, ScenarioHandler &_sh, std::shared_ptr<liblog::Logger> _logger, bool _debugFlag)
     : m_token(token), m_server_url(server_url), m_reconnect_delay(5), 
-      m_connected(false), db(_db), scenarioHandler(_sh), debugFlag(_debugFlag) {
+      m_connected(false), db(_db), scenarioHandler(_sh), logger(_logger), debugFlag(_debugFlag) {
     
     m_client.init_asio();
-    
+    logger->debug("ASIO has been initialized");
     m_client.set_open_handler(bind(&WebSocketClient::on_open, this, ::_1));
     m_client.set_message_handler(bind(&WebSocketClient::on_message, this, ::_1, ::_2));
     m_client.set_close_handler(bind(&WebSocketClient::on_close, this, ::_1));
     m_client.set_fail_handler(bind(&WebSocketClient::on_fail, this, ::_1));
+    logger->debug("Callbacks have been set");
 }
 
 void WebSocketClient::connect() {
     websocketpp::lib::error_code ec;
     auto con = m_client.get_connection(m_server_url + m_token, ec);
     if (ec) {
-        std::cerr << "WebSocketClient::connect(): Ошибка подключения: " << ec.message() << std::endl;
-        if(debugFlag)
-            std::cout << "Connection establishing occured with error" << std::endl;
+        logger->error("WebSocketClient::connect(): Ошибка подключения: " + ec.message());
         // schedule_reconnect();
         return;
     }
-    if(debugFlag)
-        std::cout << "Connection establishing was successful" << std::endl;
+    logger->info("Connection establishing was successful");
     m_client.connect(con);
     m_client.run();
 }
@@ -34,12 +32,12 @@ void WebSocketClient::send_message(const std::string& message) {
         websocketpp::lib::error_code ec;
         m_client.send(m_hdl, message, websocketpp::frame::opcode::text, ec);
         if (ec) {
-            std::cerr << "Ошибка отправки: " << ec.message() << std::endl;
+            logger->error("Ошибка отправки: " + ec.message());
         } else {
-            std::cout << "[=>] Отправлено: " << message << std::endl;
+            logger->info("[=>] Отправлено: " + message);
         }
     } else {
-        std::cerr << "Соединение не активно, отправка невозможна" << std::endl;
+        logger->error("Соединение не активно, отправка невозможна");
     }
 }
 
@@ -57,7 +55,7 @@ void WebSocketClient::set_on_command(CommandCallback cb) {
 }
 
 void WebSocketClient::on_open(connection_hdl hdl) {
-    std::cout << "[+] WebSocket соединение установлено" << std::endl;
+    logger->info("[+] WebSocket соединение установлено");
     m_hdl = hdl;
     m_connected = true;
     
@@ -69,7 +67,7 @@ void WebSocketClient::on_open(connection_hdl hdl) {
 
 void WebSocketClient::on_message(connection_hdl hdl, client::message_ptr msg) {
     std::string payload = msg->get_payload();
-    std::cout << "[<-] Получено: " << payload << std::endl;
+    logger->info("[<-] Получено: " + payload);
     
     try {
         json data = json::parse(payload);
@@ -89,20 +87,20 @@ void WebSocketClient::on_message(connection_hdl hdl, client::message_ptr msg) {
         }
     }
     catch (const json::parse_error& e) {
-        std::cout << "  (Обычное текстовое сообщение)" << std::endl;
+        logger->warning("Not allowed message has been received from remote server");
     }
 }
 
 void WebSocketClient::on_close(connection_hdl hdl) {
-    std::cout << "[-] Соединение закрыто. Переподключение через " 
-                << m_reconnect_delay << " секунд..." << std::endl;
+    logger->warning("[-] Соединение закрыто. Переподключение через " 
+                + std::to_string(m_reconnect_delay) + " секунд...");
     m_connected = false;
     // schedule_reconnect();
 }
 
 void WebSocketClient::on_fail(connection_hdl hdl) {
-    std::cout << "[!] Ошибка соединения. Переподключение через " 
-                << m_reconnect_delay << " секунд..." << std::endl;
+    logger->error("[!] Ошибка соединения. Переподключение через " 
+                + std::to_string(m_reconnect_delay) + " секунд...");
     m_connected = false;
     // schedule_reconnect();
 }
@@ -112,7 +110,7 @@ void WebSocketClient::send(const std::string& message) {
         websocketpp::lib::error_code ec;
         m_client.send(m_hdl, message, websocketpp::frame::opcode::text, ec);
         if (ec) {
-            std::cerr << "Ошибка отправки: " << ec.message() << std::endl;
+            logger->error("Ошибка отправки: " + ec.message());
         }
     }
 }

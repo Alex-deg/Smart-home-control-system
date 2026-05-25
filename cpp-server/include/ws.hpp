@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../../SIMPLE_LOGGER/liblogger/Logger.h"
 #include "ScenarioHandler.hpp"
 #include "DataBase.hpp"
 #include <websocketpp/config/asio_no_tls_client.hpp>
@@ -27,7 +28,7 @@ public:
                                                const std::string& message,
                                                int qos)>;
     WebSocketClient(const std::string& token, const std::string& server_url, 
-                    DataBase &_db, ScenarioHandler &_sh, bool _debugFlag);
+                    DataBase &_db, ScenarioHandler &_sh, std::shared_ptr<liblog::Logger> _logger, bool _debugFlag);
     void stop();
     void connect();
     bool is_connected() const;
@@ -41,6 +42,7 @@ private:
     void on_message(connection_hdl hdl, client::message_ptr msg);
     // void schedule_reconnect();
 private:
+    std::shared_ptr<liblog::Logger> logger;
     bool debugFlag;
     ScenarioHandler& scenarioHandler;
     client m_client;
