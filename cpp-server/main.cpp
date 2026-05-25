@@ -113,7 +113,7 @@ int main(){
 
     std::thread wsThread(ws_server_thr, mqtt, std::ref(db), std::ref(sh), logger);
 
-    API api(db, Settings::DEBUG);
+    API api(db, logger, Settings::DEBUG);
     std::thread api_thread([&api]() {
         std::cout << "Starting HTTP API server..." << std::endl;
         api.run(); 

@@ -1,18 +1,16 @@
 #include "../include/api.hpp"
 
-API::API(DataBase &_db, bool _debugFlag) : db(_db), debugFlag(_debugFlag) {}
+API::API(DataBase &_db, std::shared_ptr<liblog::Logger> _logger, bool _debugFlag) : db(_db), logger(_logger), debugFlag(_debugFlag) {}
 
 void API::run(int _port, bool multithreaded) {
     setupRoutes();
     if (multithreaded) {
         app.port(_port).multithreaded().run();
-        if (debugFlag){
-            std::cout << "API has been launched in multithread mode on " << _port << " port" << std::endl;
-        }
+        logger->info("API::API(): API has been launched in multithread mode on " + std::to_string(_port) + " port");
     } else {
         app.port(_port).run();
         if (debugFlag)
-            std::cout << "API has been launched in basic mode on " << _port << " port" << std::endl;
+            logger->info("API::API(): API has been launched in basic mode on " + std::to_string(_port) + " port");
     }
 }
 
@@ -24,16 +22,13 @@ crow::response API::getTelemetry(long long module_id, const std::string &param_n
     try{
         auto telemetry = db.getTelemtry(module_id, param_name, time_interval);
         res.write(json(telemetry).dump(2));
-        if(debugFlag)
-            std::cout << "Receiving telemetry was successful" << std::endl;
+        logger->info("API::getTelemetry(): Receiving telemetry was successful");
         return res;
     }
     catch(DataBaseException &e){
-        std::cerr << "API::getTelemetry(): " << e.what() << std::endl;
         resp["status"] = false;
         resp["message"] = "Получение телеметрии прошло с ошибкой";
-        if(debugFlag)
-            std::cout << "Receiving telemetry occured with error" << std::endl;
+        logger->error("API::getTelemetry(): Receiving telemetry occured with error: " + e.what());
     }            
     res.write(json(resp).dump(2));
     return res;
@@ -48,15 +43,12 @@ crow::response API::anomalyTagging(std::vector<long long> record_ids)
         db.anomalyTagging(record_ids);
         resp["status"] = true;
         resp["message"] = "Отметка аномальных данных прошла успешно";
-        if(debugFlag)
-            std::cout << "Anomaly tagging was successful" << std::endl;
+        logger->info("API::anomalyTagging(): Anomaly tagging was successful");
     }
     catch(DataBaseException &e){
-        std::cerr << "API::anomalyTagging(): " << e.what() << std::endl;
         resp["status"] = false;
         resp["message"] = "Отметка аномальных данных прошла с ошибкой";
-        if(debugFlag)
-            std::cout << "Anomaly tagging occured with error" << std::endl;
+        logger->error("API::anomalyTagging(): Anomaly tagging occured with error: " + e.what());
     }            
     res.write(json(resp).dump(2));           
     return res;
@@ -70,16 +62,13 @@ crow::response API::getModuleParams(long long module_id, int time_interval, bool
     try{
         auto params = db.getModuleParams(module_id, time_interval, with_anomaly);
         res.write(json(params).dump(2));
-        if(debugFlag)
-            std::cout << "Receiving diagnostic data was successful" << std::endl;
+        logger->info("API::getModuleParams(): Receiving diagnostic data was successful");
         return res;
     }
     catch(DataBaseException &e){
-        std::cerr << "API::getModuleParams(): " << e.what() << std::endl;
         resp["status"] = false;
         resp["message"] = "Получение данных прошло с ошибкой";
-        if(debugFlag)
-            std::cout << "Receiving diagnostic data occured with error" << std::endl;
+        logger->error("API::getModuleParams(): Receiving diagnostic data occured with error: " + e.what());
     }            
     res.write(json(resp).dump(2));           
     return res;
@@ -93,16 +82,13 @@ crow::response API::getUniqueModuleIDs()
     try{
         auto params = db.getUniqueModuleIDs();
         res.write(json(params).dump(2));
-        if(debugFlag)
-            std::cout << "Receiving unique module ids was successful" << std::endl;
+        logger->info("API::getUniqueModuleIDs(): Receiving unique module ids was successful");
         return res;
     }
     catch(DataBaseException &e){
-        std::cerr << "API::getUniqueModuleIDs(): " << e.what() << std::endl;
         resp["status"] = false;
         resp["message"] = "Получение данных прошло с ошибкой";
-        if(debugFlag)
-            std::cout << "Receiving unique module ids occured with error" << std::endl;
+        logger->error("API::getUniqueModuleIDs(): Receiving unique module ids occured with error: " + e.what());
     }            
     res.write(json(resp).dump(2));           
     return res;

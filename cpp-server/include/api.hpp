@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../../SIMPLE_LOGGER/liblogger/Logger.h"
 #include "DataBase.hpp"
 #include "crow_all.h"
 #include <random>
@@ -11,6 +12,7 @@ private:
 
     crow::SimpleApp app;
     DataBase &db;
+    std::shared_ptr<liblog::Logger> logger;
     bool debugFlag;
     
     crow::response getTelemetry(long long module_id, const std::string &param_name, int time_interval);
@@ -21,7 +23,7 @@ private:
     void setupRoutes();
 
 public:
-    explicit API(DataBase &_db, bool _debugFlag);
+    explicit API(DataBase &_db, std::shared_ptr<liblog::Logger> _logger, bool _debugFlag);
     void run(int _port = 8080, bool multithreaded = true);
 };
 
