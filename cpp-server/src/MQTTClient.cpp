@@ -297,6 +297,7 @@ void MQTTClient::reEvaluationScenarios(const std::string& param_name, double par
     logger->debug("MQTTCLient::reEvaluationScenarios(): List of triggered scenarios after param update has been received");
     for (auto &&tsID : triggeredScenarios){
         std::vector<long long> actIDs = db_.getScenariosActs(tsID);
+        logger->debug("MQTTCLient::reEvaluationScenarios(): List of acts to be performed has been received");
         for (auto &&actID : actIDs){ 
             if (auto res = HTTPClient->Get(get_act_info_endpoint + "/" + std::to_string(actID))) {
                 if (res->status == 200) {
