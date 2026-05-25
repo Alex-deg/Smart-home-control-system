@@ -78,12 +78,19 @@ void WebSocketClient::on_message(connection_hdl hdl, client::message_ptr msg) {
             m_mqtt_publish(data["params"]["mqtt_topic"], payload.dump(), 1);
         }
         if(data["type"] == "scenario"){
-            long long scenarioID = db.addScenario(data["scenario"]["name"], data["scenario"]["condition"]);
-            std::vector<long long> actIDs = data["scenario"]["acts"];
-            for (auto actID : actIDs){
-                db.addScenariosAct(scenarioID, actID);
+            long long scenarioID;
+            try{
+                scenarioID = db.addScenario(data["scenario"]["name"], data["scenario"]["condition"]);
+                std::vector<long long> actIDs = data["scenario"]["acts"];
+                for (auto actID : actIDs){
+                    db.addScenariosAct(scenarioID, actID);
+                }
+                scenarioHandler.addScenario(scenarioID, data["scenario"]["condition"]);
+                logger->info("Scenario has been added into database and ScenarioHandler successfully");
             }
-            scenarioHandler.addScenario(scenarioID, data["scenario"]["condition"]);
+            catch(std::runtime_error &e){
+                logger->error("Error occured while adding scenario: " + e.what());
+            }
         }
     }
     catch (const json::parse_error& e) {
