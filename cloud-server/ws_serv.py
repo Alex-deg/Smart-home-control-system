@@ -25,7 +25,7 @@ async def get_home():
 
 @app.post("/api/auth")
 async def auth(login : str = Body(...), password : str = Body(...)):
-    status, id = db.check_auth(login, password)
+    status, id = db.auth(login, password)
     if status:
         return f"You have been autorized with id = {id}"
     return "Incorrect login or password"
@@ -37,130 +37,158 @@ async def registration(login : str = Body(...), password : str = Body(...)):
 
 @app.get("/api/users/{user_id}/servers")
 async def show_servers(user_id: int):
-    return db.get_servers(user_id)
+    if db.check_auth(user_id):
+        return db.get_servers(user_id)
+    return "non authenticated"
 
 @app.post("/api/users/{user_id}/servers/add")
 async def add_server(user_id: int, name : str = Body(...)):
-    server_token = str(uuid.uuid4())
-    temp_servers[server_token] = {"user_id" : user_id, "server_name" : name}
-    return {"server_token": server_token}
+    if db.check_auth(user_id):
+        server_token = str(uuid.uuid4())
+        temp_servers[server_token] = {"user_id" : user_id, "server_name" : name}
+        return {"server_token": server_token}
+    return "non authenticated"
 
 @app.delete("/api/users/{user_id}/servers/{server_id}/delete")
 async def delete_server(user_id : int, server_id: int):
-    owner_id = db.get_server_owner_id(server_id)
-    if owner_id != user_id:
-        raise HTTPException(status_code=403, detail="Not owned")
-    # Если есть активное соединение, закрываем его
-    server_info = db.get_server_info(server_id)
-    if server_info["token"] in active_connections:
-        ws = active_connections[server_info["token"]]
-        try:
-            await ws.close(code=1000, reason="Server deleted")
-        except:
-            pass
-        del active_connections[server_info["token"]]
-    # Удаление из таблиц servers и users_servers
-    db.delete_server_from_tables(server_id)
-    return True
+    if db.check_auth(user_id):
+        owner_id = db.get_server_owner_id(server_id)
+        if owner_id != user_id:
+            raise HTTPException(status_code=403, detail="Not owned")
+        # Если есть активное соединение, закрываем его
+        server_info = db.get_server_info(server_id)
+        if server_info["token"] in active_connections:
+            ws = active_connections[server_info["token"]]
+            try:
+                await ws.close(code=1000, reason="Server deleted")
+            except:
+                pass
+            del active_connections[server_info["token"]]
+        # Удаление из таблиц servers и users_servers
+        db.delete_server_from_tables(server_id)
+        return True
+    return "non authenticated"
 
 @app.get("/api/users/{user_id}/servers/{server_id}/modules")
 async def show_modules(user_id: int, server_id: int):
-    return db.get_modules(server_id)
+    if db.check_auth(user_id):
+        return db.get_modules(server_id)
+    return "non authenticated"
 
 @app.post("/api/users/{user_id}/servers/{server_id}/modules/add")
-async def add_module(server_id : int, name : str = Body(...), alias : str = Body(...), 
+async def add_module(user_id : int, server_id : int, name : str = Body(...), alias : str = Body(...), 
                      mqtt_topic : str = Body(...), description : str = Body(...)):
-    db.add_module(server_id, name, alias, mqtt_topic, description)
-    return True
-
+    
+    if db.check_auth(user_id):
+        db.add_module(server_id, name, alias, mqtt_topic, description)
+        return True
+    return "non authenticated"
+    
 @app.delete("/api/users/{user_id}/servers/{server_id}/modules/{module_id}/delete")
-async def delete_module(module_id : int):
-    db.delete_module_from_tables(module_id)
+async def delete_module(user_id : int, module_id : int):
+    if db.check_auth(user_id):
+        db.delete_module_from_tables(module_id)
+        return True
+    return "non authenticated"
 
 @app.get("/api/users/{user_id}/servers/{server_id}/modules/{module_id}/capabilities")
 async def show_capabilities(user_id: int, server_id: str, module_id: str):
-    return db.get_capabilities(module_id)
+    if db.check_auth(user_id):
+        return db.get_capabilities(module_id)
+    return "non authenticated"
 
 @app.post("/api/users/{user_id}/servers/{server_id}/modules/{module_id}/capabilities/add")
-async def add_capability(module_id : int, name : str = Body(...)):
-    db.add_capability(module_id, name)
-    return True
-
+async def add_capability(user_id : int, module_id : int, name : str = Body(...)):
+    if db.check_auth(user_id):
+        db.add_capability(module_id, name)
+        return True
+    return "non authenticated"
+    
 @app.delete("/api/users/{user_id}/servers/{server_id}/modules/{module_id}/capabilities/{capability_id}/delete")
-async def delete_capability(capability_id : int):
-    db.delete_capability_from_tables(capability_id)
+async def delete_capability(user_id : int, capability_id : int):
+    if db.check_auth(user_id):
+        db.delete_capability_from_tables(capability_id)
+    return "non authenticated"
 
 @app.post("/api/users/{user_id}/servers/{server_id}/modules/{module_id}/capabilities/{capability_id}/unbind")
-async def undind_module_capability(module_id : int, capability_id : int):
-    db.unbind_module_capability(module_id, capability_id)
-    return True
+async def undind_module_capability(user_id : int, module_id : int, capability_id : int):
+    if db.check_auth(user_id):
+        db.unbind_module_capability(module_id, capability_id)
+        return True
+    return "non authenticated"
 
 @app.post("/api/users/{user_id}/servers/{server_id}/modules/{module_id}/capability/{capbility_id}/send_command")
 async def send_command(user_id: int, server_id: int, module_id : int, capability_id : int):
 
-    server_info = db.get_server_info(server_id)
-    owner_id = db.get_server_owner_id(server_id)
-    if owner_id != user_id:
-        raise HTTPException(status_code=403, detail="Not owned")
-    ws = active_connections.get(server_info["token"])
-    if not ws:
-        raise HTTPException(status_code=404, detail="RPi not connected")
-    try:
-        module_info = db.get_module_info(module_id)
-        capability_info = db.get_capability_info(capability_id)
-
-        request_id = str(uuid.uuid4())
-        future = asyncio.Future()
-        pending_requests[request_id] = future
-
-        message  =  {
-                        "type" : "command",
-                        "request_id" : request_id,
-                        "params" : {
-                            "mqtt_topic" : module_info["mqtt_topic"], 
-                            "payload" : capability_info["name"]
-                        }
-                    }
-        await ws.send_text(json.dumps(message))
+    if db.check_auth(user_id):
+        server_info = db.get_server_info(server_id)
+        owner_id = db.get_server_owner_id(server_id)
+        if owner_id != user_id:
+            raise HTTPException(status_code=403, detail="Not owned")
+        ws = active_connections.get(server_info["token"])
+        if not ws:
+            raise HTTPException(status_code=404, detail="RPi not connected")
         try:
-            # мб задать таймаут переменной
-            response = await asyncio.wait_for(future, timeout=10.0)
-            return {"status": "ok", "result": response}
-        except asyncio.TimeoutError:
-            raise HTTPException(status_code=408, detail="Request timeout")
-        finally:
-            pending_requests.pop(request_id, None)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+            module_info = db.get_module_info(module_id)
+            capability_info = db.get_capability_info(capability_id)
+
+            request_id = str(uuid.uuid4())
+            future = asyncio.Future()
+            pending_requests[request_id] = future
+
+            message  =  {
+                            "type" : "command",
+                            "request_id" : request_id,
+                            "params" : {
+                                "mqtt_topic" : module_info["mqtt_topic"], 
+                                "payload" : capability_info["name"]
+                            }
+                        }
+            await ws.send_text(json.dumps(message))
+            try:
+                # мб задать таймаут переменной
+                response = await asyncio.wait_for(future, timeout=10.0)
+                return {"status": "ok", "result": response}
+            except asyncio.TimeoutError:
+                raise HTTPException(status_code=408, detail="Request timeout")
+            finally:
+                pending_requests.pop(request_id, None)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    return "non authenticated"
 
 @app.post("/api/users/{user_id}/servers/{server_id}/add_scenario")
 async def add_scenario_and_send(user_id: int, server_id : int, scenario_name : str, 
                                                                scenario_condition : str, 
-                                                               scenario_acts : list[int]):
-    server_info = db.get_server_info(server_id)
-    owner_id = db.get_server_owner_id(server_id)
-    if owner_id != user_id:
-        raise HTTPException(status_code=403, detail="Not owned")
-    ws = active_connections.get(server_info["token"])
-    if not ws:
-        raise HTTPException(status_code=404, detail="RPi not connected")
-    try:
-        message  =  {
-                        "type" : "scenario",
-                        "scenario" : {
-                            "name" : scenario_name,
-                            "condition" : scenario_condition,
-                            "acts" : scenario_acts
+                                                               scenario_acts : list[int]): 
+    if db.check_auth(user_id):
+        server_info = db.get_server_info(server_id)
+        owner_id = db.get_server_owner_id(server_id)
+        if owner_id != user_id:
+            raise HTTPException(status_code=403, detail="Not owned")
+        ws = active_connections.get(server_info["token"])
+        if not ws:
+            raise HTTPException(status_code=404, detail="RPi not connected")
+        try:
+            message  =  {
+                            "type" : "scenario",
+                            "scenario" : {
+                                "name" : scenario_name,
+                                "condition" : scenario_condition,
+                                "acts" : scenario_acts
+                            }
                         }
-                    }
-        await ws.send_text(json.dumps(message))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
+            await ws.send_text(json.dumps(message))
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=str(e))
+    return "non authenticated"
+    
 @app.get("/api/get_act_info/{act_id}")
 async def get_act_info(act_id : int):
-    return db.get_act_info(act_id)
-
+    if db.check_auth(db.get_user_id(act_id)):
+        return db.get_act_info(act_id)
+    return "non authenticated"
+    
 
 
 @app.websocket("/ws/bind_server/{server_token}")
