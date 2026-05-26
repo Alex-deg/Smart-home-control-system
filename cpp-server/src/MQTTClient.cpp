@@ -44,10 +44,6 @@ MQTTClient::MQTTClient(DataBase& db, ScenarioHandler &sh, const std::string& _ba
     mosquitto_unsubscribe_callback_set(mosq_, on_unsubscribe);
     logger->debug("MQTTCLient::MQTTClient(): Callback setup has been completed successful");
 
-    // Настройка логирования
-    mosquitto_log_callback_set(mosq_, [](mosquitto* mosq, void* obj, int level, const char* str) {
-        std::cout << "[MQTT LOG] Level " << level << ": " << str << std::endl;
-    });
 }
 
 MQTTClient::~MQTTClient() {
@@ -248,6 +244,7 @@ MQTTClient::Topics MQTTClient::convertStringTopicToEnum(const std::string &topic
         return Topics::DB_SAVE_PARAMS;    
     if (topic == "rpi/send_message/remote")
         return Topics::REMOTE_SEND;
+    return Topics::UNDEFINED;
 }
 
 void MQTTClient::startLoop() {

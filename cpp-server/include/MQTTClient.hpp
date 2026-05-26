@@ -26,6 +26,7 @@ class MQTTClient {
 public:
 
     enum Topics{
+        UNDEFINED = -1,
         DB_SAVE_TELEMETRY = 0,
         DB_SAVE_PARAMS, 
         REMOTE_SEND,
