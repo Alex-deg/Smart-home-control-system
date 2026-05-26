@@ -17,6 +17,7 @@ set(
     include/ScenarioHandler.hpp
     include/ScenarioParser.hpp
     include/ws.hpp
+    ../SIMPLE_LOGGER/liblogger/Logger.h
 )
 
 set(
@@ -28,6 +29,7 @@ set(
     src/ScenarioHandler.cpp
     src/ScenarioParser.cpp
     src/ws.cpp
+    ../SIMPLE_LOGGER/liblogger/Logger.cpp
     main.cpp
 )
 
