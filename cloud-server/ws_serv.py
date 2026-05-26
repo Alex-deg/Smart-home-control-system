@@ -185,20 +185,34 @@ async def add_scenario_and_send(user_id: int, server_id : int, scenario_name : s
     
 @app.get("/api/get_act_info/{act_id}")
 async def get_act_info(act_id : int):
-    if db.check_auth(db.get_user_id(act_id)):
+    if db.check_auth(db.get_user_id_by_act_id(act_id)):
         return db.get_act_info(act_id)
     return "non authenticated"
     
+@app.post("/api/auto_detect")
+async def auto_detect(token : str = Body(...), name : str = Body(...), alias : str = Body(...), 
+                      mqtt_topic : str = Body(...), description : str = Body(...)):
+    
+    server_id = db.get_server_id_by_token(token)
+    if db.check_auth(db.get_user_id_by_server_id(server_id)):
+        module_id = db.add_module(server_id, name, alias, mqtt_topic, description)
+        return {"module_id" : module_id}
+    return "non authenticated"
+
 
 
 @app.websocket("/ws/bind_server/{server_token}")
 async def websocket_endpoint(websocket: WebSocket, server_token: str):
-    if server_token not in temp_servers:
+
+    is_server_exist = db.is_server_exist(server_token)
+
+    if not is_server_exist and server_token not in temp_servers:
         await websocket.close(code=1008, reason="Unknown server_id")
         return
 
-    db.add_server(temp_servers[server_token]["user_id"], temp_servers[server_token]["server_name"], server_token)
-    del temp_servers[server_token]
+    if not is_server_exist:
+        db.add_server(temp_servers[server_token]["user_id"], temp_servers[server_token]["server_name"], server_token)
+        del temp_servers[server_token]
 
     await websocket.accept()
     try:
