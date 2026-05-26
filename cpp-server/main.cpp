@@ -46,7 +46,7 @@ void ws_server_thr(std::shared_ptr<MQTTClient> mqtt_client, DataBase &db, Scenar
     else{
         std::cout << "TOKEN = " << server_token << std::endl;
     }
-    auto client = std::make_shared<WebSocketClient>(server_token, Settings::REMOTE_SERVER_BASE_API_URL + Settings::WS_CONNECTION_BIND_ENDPOINT, 
+    auto client = std::make_shared<WebSocketClient>(server_token, "ws://" + Settings::REMOTE_SERVER_BASE_API_URL + Settings::WS_CONNECTION_BIND_ENDPOINT, 
                                                     db, sh, logger, Settings::DEBUG);
     mqtt_client->setSendCallback([client](const std::string& message){
         client->send_message(message);
@@ -88,7 +88,7 @@ int main(){
 
     ScenarioHandler sh;
 
-    std::shared_ptr<MQTTClient> mqtt = std::make_shared<MQTTClient>(db, sh, Settings::REMOTE_SERVER_BASE_API_URL, 
+    std::shared_ptr<MQTTClient> mqtt = std::make_shared<MQTTClient>(db, sh, "http://" + Settings::REMOTE_SERVER_BASE_API_URL, 
                                                                             Settings::GET_ACT_INFO_ENDPOINT,
                                                                             logger,
                                                                             Settings::DEBUG);
