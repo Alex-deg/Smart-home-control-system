@@ -1,6 +1,8 @@
 #include "../include/api.hpp"
 
-API::API(DataBase &_db, std::shared_ptr<liblog::Logger> _logger, bool _debugFlag) : db(_db), logger(_logger), debugFlag(_debugFlag) {}
+API::API(DataBase &_db, std::shared_ptr<liblog::Logger> _logger, const std::string &token, 
+         const std::string &baseURL, const std::string &endpoint, bool _debugFlag) : db(_db),
+         logger(_logger), serverToken(token), baseRemoteApiUrl(baseURL), autodetectEndpoint(endpoint), debugFlag(_debugFlag) {}
 
 void API::run(int _port, bool multithreaded) {
     setupRoutes();
@@ -94,6 +96,46 @@ crow::response API::getUniqueModuleIDs()
     return res;
 }
 
+crow::response API::autodetection(crow::json::rvalue input)
+{
+    crow::response res;
+    res.add_header("Content-Type", "application/json; charset=utf-8");
+    json resp;
+    try{
+        json data;
+        data["token"] = serverToken;
+        data["name"] = input["name"];
+        data["mqtt_topic"] = input["mqtt_topic"];
+        data["alias"] = input["alias"];
+        data["description"] = input["description"];
+
+        httplib::Client client(baseRemoteApiUrl);
+        httplib::Headers headers = {
+            {"Content-Type", "application/json"}
+        };
+        if (auto result = client.Post(autodetectEndpoint, headers, data.dump(), "application/json")) {
+            if (result->status == 200) {
+                auto json = crow::json::load(result->body);
+                data.clear();
+                data["module_id"] = json["module_id"];
+                res.write(data.dump());
+                return res;
+            } else {
+                logger->error("API::autodetection(): HTTP error: " + std::to_string(result->status));
+            }
+        } else {
+            logger->error("API::autodetection(): Connection to server hasn't been established");
+        }        
+    }
+    catch(DataBaseException &e){
+        resp["status"] = false;
+        resp["message"] = "Получение данных прошло с ошибкой";
+        logger->error("API::autodetection(): Autodetect occured with error: " + std::string(e.what()));
+    }            
+    res.write(json(resp).dump(2));           
+    return res;
+}
+
 void API::setupRoutes()
 {
 
@@ -103,7 +145,7 @@ void API::setupRoutes()
     });
 
     CROW_ROUTE(app, "/api/database/telemetry")
-    .methods(crow::HTTPMethod::GET)
+    .methods(crow::HTTPMethod::Get)
     ([this](const crow::request& req){
 
         auto params = req.url_params;
@@ -123,7 +165,7 @@ void API::setupRoutes()
     });
 
     CROW_ROUTE(app, "/api/database/params")
-    .methods(crow::HTTPMethod::GET)
+    .methods(crow::HTTPMethod::Get)
     ([this](const crow::request& req){
 
         auto params = req.url_params;
@@ -143,13 +185,13 @@ void API::setupRoutes()
     });
 
     CROW_ROUTE(app, "/api/database/params/unique_modules")
-    .methods(crow::HTTPMethod::GET)
+    .methods(crow::HTTPMethod::Get)
     ([this](const crow::request& req){
         return getUniqueModuleIDs();
     });
 
     CROW_ROUTE(app, "/api/database/params/anomaly_tagging")
-    .methods(crow::HTTPMethod::POST)
+    .methods(crow::HTTPMethod::Post)
     ([this](const crow::request& req){
 
         auto json = crow::json::load(req.body);
@@ -165,6 +207,20 @@ void API::setupRoutes()
         }
 
         return anomalyTagging(record_ids);
+    });
+
+    CROW_ROUTE(app, "/api/auto-detect")
+    .methods(crow::HTTPMethod::Post)
+    ([this](const crow::request& req){
+        
+        auto json = crow::json::load(req.body);
+
+        if (!json || !json.has("name") || !json.has("mqtt_topic") || !json.has("alias") || !json.has("description")){
+            return crow::response(400, "Invalid JSON or missing fields");
+        }
+
+        return autodetection(json);
+
     });
 
 }
