@@ -201,8 +201,9 @@ class Database(IDataBase):
         sql = (
             "CREATE TABLE users ( " 
             "    id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "    login TEXT NOT NULL, "
-            "    password TEXT NOT NULL "
+            "    login TEXT NOT NULL UNIQUE, "
+            "    password TEXT NOT NULL, "
+            "    is_auth BOOLEAN DEFAULT FALSE NOT NULL "
             ");"
             )
         self.execute_request(sql)
@@ -570,7 +571,7 @@ class Database(IDataBase):
             act["command"] = response.get_str(i, "name")
         return act
 
-    def check_auth(self, login, password):
+    def auth(self, login : str, password : str):
         sql = (
             "SELECT " 
             "    id, "
@@ -578,14 +579,58 @@ class Database(IDataBase):
             "    password "
             "FROM users WHERE login = ?;"
         )
-        response = response = self.execute_query(sql, [login])
+        response = self.execute_query(sql, [login])
 
         if response.size() == 0:
             return False, -1
         if response.get_str(0, "password") != password:
             return False, -1
 
+        sql = (
+            "UPDATE users "
+            "SET is_auth = TRUE "
+            "WHERE id = ?;"
+        )
+        self.execute_request(sql, [response.get_int(0, "id")])
         return True, response.get_int(0, "id")
+
+    def check_auth(self, user_id : int) -> bool:
+        sql = (
+            "SELECT "
+            "    is_auth "
+            "FROM users "
+            "WHERE id = ?;"
+        )
+        response = self.execute_query(sql, [user_id])
+        if response.get_int(0, "is_auth") == 1:
+            return True
+        return False
+
+    def get_user_id(self, act_id : int) -> int:
+        sql = (
+            "SELECT "
+            "    module_id "
+            "FROM modules_capabilities "
+            "WHERE id = ?;"
+        )
+        response = self.execute_query(sql, [act_id])
+        sql = (
+            "SELECT "
+            "    server_id "
+            "FROM modules "
+            "WHERE id = ?;"
+        )
+        response = self.execute_query(sql, [response.get_int(0, "module_id")])
+        sql = (
+            "SELECT "
+            "    user_id "
+            "FROM users_servers "
+            "WHERE server_id = ?;"
+        )
+        response = self.execute_query(sql, [response.get_int(0, "server_id")])
+        if response.size() > 0:
+            return response.get_int(0, "user_id")
+        return -1
 
     def delete_table_by_name(self, name : str):
         sql = "DROP TABLE " + name
