@@ -20,6 +20,9 @@ namespace Settings{
     bool DEBUG = true;
 #endif
 
+    const std::string path_to_config = "../configs/config.json";
+    std::string TOKEN;
+
     std::string LOG_PATH;
 
     std::string PATH_TO_DATABASE;
@@ -30,23 +33,36 @@ namespace Settings{
     std::string REMOTE_SERVER_BASE_API_URL;
     std::string WS_CONNECTION_BIND_ENDPOINT;
     std::string GET_ACT_INFO_ENDPOINT;
+    std::string AUTODETECT_ENDPOINT;
 
     std::string MQTT_BROKER_IP;
     int MQTT_BROKER_PORT;
 }
 
 void ws_server_thr(std::shared_ptr<MQTTClient> mqtt_client, DataBase &db, ScenarioHandler &sh, std::shared_ptr<Logger> logger){
-    std::string server_token;
-    std::cout << "Введите токен сервера: ";
-    std::getline(std::cin, server_token);
-    if (server_token.empty()) {
-        std::cout << "Токен пуст!" << std::endl;
-        return;
+    if (Settings::TOKEN == ""){
+        std::string server_token;
+        std::cout << "Введите токен сервера: ";
+        std::getline(std::cin, server_token);
+        if (server_token.empty()) {
+            std::cout << "Токен пуст!" << std::endl;
+            return;
+        }
+        else{
+            std::cout << "TOKEN = " << server_token << std::endl;
+            Settings::TOKEN = server_token;
+            JSONHandler jh;
+            if(jh.open(Settings::path_to_config)){
+                jh.setValueByKey<std::string>("CPP_CORE_SETTINGS.TOKEN", server_token);
+                jh.saveJsonObjectToFile(Settings::path_to_config);
+            }
+            else{
+                std::cout << "Config file don't open" << std::endl;
+            }
+
+        }
     }
-    else{
-        std::cout << "TOKEN = " << server_token << std::endl;
-    }
-    auto client = std::make_shared<WebSocketClient>(server_token, "ws://" + Settings::REMOTE_SERVER_BASE_API_URL + Settings::WS_CONNECTION_BIND_ENDPOINT, 
+    auto client = std::make_shared<WebSocketClient>(Settings::TOKEN, "ws://" + Settings::REMOTE_SERVER_BASE_API_URL + Settings::WS_CONNECTION_BIND_ENDPOINT, 
                                                     db, sh, logger, Settings::DEBUG);
     mqtt_client->setSendCallback([client](const std::string& message){
         client->send_message(message);
@@ -60,6 +76,7 @@ void ws_server_thr(std::shared_ptr<MQTTClient> mqtt_client, DataBase &db, Scenar
 void getSettingsValuesFromJson(const std::string& path){
     JSONHandler jh;
     if(jh.open(path)){
+        Settings::TOKEN = jh.getValueByKey<std::string>("CPP_CORE_SETTINGS.TOKEN");
         Settings::PATH_TO_DATABASE = jh.getValueByKey<std::string>("CPP_CORE_SETTINGS.PATH_TO_DATABASE");
         Settings::API_PORT = jh.getValueByKey<int>("CPP_CORE_SETTINGS.API_PORT");
         Settings::REMOTE_SERVER_IP = jh.getValueByKey<std::string>("REMOTE_SERVER_SETTINGS.REMOTE_SERVER_IP");
@@ -67,6 +84,7 @@ void getSettingsValuesFromJson(const std::string& path){
         Settings::REMOTE_SERVER_BASE_API_URL = Settings::REMOTE_SERVER_IP + ":" + std::to_string(Settings::REMOTE_SERVER_API_PORT);
         Settings::WS_CONNECTION_BIND_ENDPOINT = jh.getValueByKey<std::string>("REMOTE_SERVER_SETTINGS.ENDPOINTS.WS_CONNECTION_BIND_ENDPOINT");
         Settings::GET_ACT_INFO_ENDPOINT = jh.getValueByKey<std::string>("REMOTE_SERVER_SETTINGS.ENDPOINTS.GET_ACT_INFO_ENDPOINT");
+        Settings::AUTODETECT_ENDPOINT = jh.getValueByKey<std::string>("REMOTE_SERVER_SETTINGS.ENDPOINTS.AUTODETECT_ENDPOINT");
         Settings::MQTT_BROKER_IP = jh.getValueByKey<std::string>("MQTT_SETTINGS.MQTT_BROKER_IP");
         Settings::MQTT_BROKER_PORT = jh.getValueByKey<int>("MQTT_SETTINGS.MQTT_BROKER_PORT");
         std::cout << Settings::PATH_TO_DATABASE << std::endl;
@@ -78,7 +96,7 @@ void getSettingsValuesFromJson(const std::string& path){
 
 int main(){
 
-    getSettingsValuesFromJson("../configs/config.json");
+    getSettingsValuesFromJson(Settings::path_to_config);
 
     DataBase db;
     db.open(Settings::PATH_TO_DATABASE);
@@ -113,7 +131,8 @@ int main(){
 
     std::thread wsThread(ws_server_thr, mqtt, std::ref(db), std::ref(sh), logger);
 
-    API api(db, logger, Settings::DEBUG);
+    API api(db, logger, Settings::TOKEN, "http://" + Settings::REMOTE_SERVER_BASE_API_URL, 
+                        Settings::AUTODETECT_ENDPOINT, Settings::DEBUG);
     std::thread api_thread([&api]() {
         std::cout << "Starting HTTP API server..." << std::endl;
         api.run(); 
