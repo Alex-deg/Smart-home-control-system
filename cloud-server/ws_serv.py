@@ -223,12 +223,14 @@ async def websocket_endpoint(websocket: WebSocket, server_token: str):
         while True:
             data = await websocket.receive_text()
             message = json.loads(data)
-            if "request_id" in message:
+            if message["type"] == "response":
                 request_id = message["request_id"]
                 if request_id in pending_requests:
                     pending_requests[request_id].set_result(message["payload"])
                 else:
                     print(f"Unknown request_id: {request_id}")
+            elif message["type"] == "alert":
+                print(message)
     except WebSocketDisconnect:
         pass
     finally:
