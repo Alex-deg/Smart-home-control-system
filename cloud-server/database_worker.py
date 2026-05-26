@@ -322,13 +322,23 @@ class Database(IDataBase):
         self.execute_request(sql, [user_id, server_id])
 
     def add_module(self, server_id, name, alias, 
-                         mqtt_topic, description = ""):
+                         mqtt_topic, description = "") -> int:
         # Добавление в таблицу modules
         sql = (
             "INSERT INTO modules(server_id, name, alias, mqtt_topic, description) " 
             "VALUES (?, ?, ?, ?, ?);"
         )
         self.execute_request(sql, [server_id, name, alias, mqtt_topic, description])
+        sql = (
+            "SELECT " 
+            "    id " 
+            "FROM modules " 
+            "ORDER BY id DESC " 
+            "LIMIT 1; "
+        )
+        response = self.execute_query(sql)
+        module_id = response.get_int(0, "id")
+        return module_id
 
     def add_capability(self, module_id, name):
         # Проверка на уже существующие функции
@@ -606,7 +616,7 @@ class Database(IDataBase):
             return True
         return False
 
-    def get_user_id(self, act_id : int) -> int:
+    def get_user_id_by_act_id(self, act_id : int) -> int:
         sql = (
             "SELECT "
             "    module_id "
@@ -631,6 +641,36 @@ class Database(IDataBase):
         if response.size() > 0:
             return response.get_int(0, "user_id")
         return -1
+
+    def get_user_id_by_server_id(self, server_id : int) -> int:
+        sql = (
+            "SELECT "
+            "    user_id "
+            "FROM users_servers "
+            "WHERE server_id = ?;"
+        )
+        response = self.execute_query(sql, [server_id])
+        return response.get_int(0, "user_id")
+
+    def get_server_id_by_token(self, token :str):
+        sql = (
+            "SELECT "
+            "    id "
+            "FROM servers "
+            "WHERE token = ?;"
+        )
+        response = self.execute_query(sql, [token])
+        return response.get_int(0, "id")
+
+    def is_server_exist(self, token : str) -> bool:
+        sql = (
+            "SELECT "
+            "    id "
+            "FROM servers "
+            "WHERE token = ?;"
+        )
+        response =self.execute_query(sql, [token])
+        return response.size() > 0
 
     def delete_table_by_name(self, name : str):
         sql = "DROP TABLE " + name
