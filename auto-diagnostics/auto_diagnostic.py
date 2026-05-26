@@ -112,6 +112,7 @@ class DiagnosticModule:
             msg = f"Аномалия на модуле {module_id}: температура = {temp}°C, память = {free_bytes // 1024} КБ"
 
         payload = {
+            "type" : "alert",
             "module_id": module_id,
             "timestamp": latest['timestamp'],
             "severity": severity,
