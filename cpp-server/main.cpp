@@ -1,3 +1,4 @@
+#include "../SIMPLE_LOGGER/liblogger/Logger.h"
 #include "include/ScenarioHandler.hpp"
 #include "include/JSONHandler.hpp"
 #include "include/DataBase.hpp"
@@ -6,10 +7,20 @@
 #include "include/ws.hpp"
 #include <nlohmann/json.hpp>
 #include <iostream>
+#include <memory>
 
 using json = nlohmann::json;
+using namespace liblog;
 
 namespace Settings{
+
+#ifdef NDEBUG
+    bool DEBUG = false;
+#else
+    bool DEBUG = true;
+#endif
+
+    std::string LOG_PATH;
 
     std::string PATH_TO_DATABASE;
     int API_PORT;
@@ -24,7 +35,7 @@ namespace Settings{
     int MQTT_BROKER_PORT;
 }
 
-void ws_server_thr(std::shared_ptr<MQTTClient> mqtt_client, DataBase &db, ScenarioHandler &sh){
+void ws_server_thr(std::shared_ptr<MQTTClient> mqtt_client, DataBase &db, ScenarioHandler &sh, std::shared_ptr<Logger> logger){
     std::string server_token;
     std::cout << "Введите токен сервера: ";
     std::getline(std::cin, server_token);
@@ -35,7 +46,8 @@ void ws_server_thr(std::shared_ptr<MQTTClient> mqtt_client, DataBase &db, Scenar
     else{
         std::cout << "TOKEN = " << server_token << std::endl;
     }
-    auto client = std::make_shared<WebSocketClient>(server_token, Settings::REMOTE_SERVER_BASE_API_URL + Settings::WS_CONNECTION_BIND_ENDPOINT, db, sh);
+    auto client = std::make_shared<WebSocketClient>(server_token, "ws://" + Settings::REMOTE_SERVER_BASE_API_URL + Settings::WS_CONNECTION_BIND_ENDPOINT, 
+                                                    db, sh, logger, Settings::DEBUG);
     mqtt_client->setSendCallback([client](const std::string& message){
         client->send_message(message);
     });
@@ -71,12 +83,16 @@ int main(){
     DataBase db;
     db.open(Settings::PATH_TO_DATABASE);
 
+    // logger for console
+    std::shared_ptr<Logger> logger = std::make_shared<Logger>(liblog::INFO);
+
     ScenarioHandler sh;
 
-    std::shared_ptr<MQTTClient> mqtt = std::make_shared<MQTTClient>(db, sh, Settings::REMOTE_SERVER_BASE_API_URL, 
-                                                                            Settings::GET_ACT_INFO_ENDPOINT);
+    std::shared_ptr<MQTTClient> mqtt = std::make_shared<MQTTClient>(db, sh, "http://" + Settings::REMOTE_SERVER_BASE_API_URL, 
+                                                                            Settings::GET_ACT_INFO_ENDPOINT,
+                                                                            logger,
+                                                                            Settings::DEBUG);
 
-    std::cout << Settings::MQTT_BROKER_IP << " " << Settings::MQTT_BROKER_PORT << std::endl;
     if (!mqtt->connect(Settings::MQTT_BROKER_IP, Settings::MQTT_BROKER_PORT)) {
         return 1;
     }
@@ -95,9 +111,9 @@ int main(){
         return 1;
     }
 
-    std::thread wsThread(ws_server_thr, mqtt, std::ref(db), std::ref(sh));
+    std::thread wsThread(ws_server_thr, mqtt, std::ref(db), std::ref(sh), logger);
 
-    API api(db);
+    API api(db, logger, Settings::DEBUG);
     std::thread api_thread([&api]() {
         std::cout << "Starting HTTP API server..." << std::endl;
         api.run(); 

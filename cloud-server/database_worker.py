@@ -137,7 +137,7 @@ class IDataBase:
                 cursor.execute(sql)
             
             if cursor.description:
-                result.column_names = [col[0] for col in cursor.description]
+                result._column_names = [col[0] for col in cursor.description]
             
             rows = cursor.fetchall()
             for row in rows:
@@ -149,7 +149,7 @@ class IDataBase:
                         row_list.append(value.decode('utf-8'))
                     else:
                         row_list.append(str(value))
-                result.rows.append(row_list)
+                result._rows.append(row_list)
             
             cursor.close()
             
@@ -382,7 +382,7 @@ class Database(IDataBase):
         )
         response = self.execute_query(sql, [server_id])
         for i in range(response.size()):
-            module_id = response.get_int(i, "module_id")
+            module_id = response.get_int(i, "id")
             self.delete_module_from_tables(module_id)
         # Удаление из таблицы с серверами
         sql = (

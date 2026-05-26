@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../../SIMPLE_LOGGER/liblogger/Logger.h"
 #include "ScenarioHandler.hpp"
 #include "DataBase.hpp"
 #include "httplib.h"
@@ -19,10 +20,13 @@
 #include <queue>
 #include <map>
 
+using namespace liblog;
+
 class MQTTClient {
 public:
 
     enum Topics{
+        UNDEFINED = -1,
         DB_SAVE_TELEMETRY = 0,
         DB_SAVE_PARAMS, 
         REMOTE_SEND,
@@ -35,7 +39,8 @@ public:
     using SendCallback = std::function<void(const std::string& message)>;
 
     explicit MQTTClient(DataBase& db, ScenarioHandler &sh, const std::string& _base_api_url, 
-                        const std::string& _get_act_info_endpoint);
+                        const std::string& _get_act_info_endpoint, std::shared_ptr<Logger> _logger,
+                        bool _debugFlag);
     ~MQTTClient();
 
     bool connect(const std::string& host = "localhost", 
@@ -80,6 +85,9 @@ private:
     void loopThread();
     
 private:
+
+    std::shared_ptr<Logger> logger;
+    bool debugFlag;
 
     DataBase& db_;
     ScenarioHandler& scenarioHandler;

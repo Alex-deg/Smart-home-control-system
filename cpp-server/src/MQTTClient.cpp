@@ -10,24 +10,30 @@ std::string generateClientId() {
 }
 
 MQTTClient::MQTTClient(DataBase& db, ScenarioHandler &sh, const std::string& _base_api_url, 
-                       const std::string& _get_act_info_endpoint) 
+                       const std::string& _get_act_info_endpoint, std::shared_ptr<Logger> _logger,
+                       bool _debugFlag) 
     : db_(db), scenarioHandler(sh), mosq_(nullptr), connected_(false), running_(false),
-      base_api_url(_base_api_url), get_act_info_endpoint(_get_act_info_endpoint) {
+      base_api_url(_base_api_url), get_act_info_endpoint(_get_act_info_endpoint), logger(_logger), 
+      debugFlag(_debugFlag) {
     
     client_id_ = generateClientId();
+    logger->debug("MQTTCLient::MQTTClient(): ClientID has been generated");
     HTTPClient = std::make_unique<httplib::Client>(base_api_url);
+    logger->debug("MQTTCLient::MQTTClient(): HTTPClient for API requests has been created");
 
     static bool lib_initialized = false;
     if (!lib_initialized) {
         mosquitto_lib_init();
         lib_initialized = true;
     }
+    logger->debug("MQTTCLient::MQTTClient(): Mosquitto lib has been initialized");
     
     // Создание экземпляра клиента
     mosq_ = mosquitto_new(client_id_.c_str(), true, this);
     if (!mosq_) {
-        throw std::runtime_error("Failed to create Mosquitto instance");
+        throw std::runtime_error("MQTTCLient::MQTTClient(): Failed to create Mosquitto instance");
     }
+    logger->debug("MQTTCLient::MQTTClient(): Mosquitto client has been created");
     
     // Настройка callback'ов
     mosquitto_connect_callback_set(mosq_, on_connect);
@@ -36,17 +42,15 @@ MQTTClient::MQTTClient(DataBase& db, ScenarioHandler &sh, const std::string& _ba
     mosquitto_message_callback_set(mosq_, on_message);
     mosquitto_subscribe_callback_set(mosq_, on_subscribe);
     mosquitto_unsubscribe_callback_set(mosq_, on_unsubscribe);
-    
-    // Настройка логирования
-    mosquitto_log_callback_set(mosq_, [](mosquitto* mosq, void* obj, int level, const char* str) {
-        std::cout << "[MQTT LOG] Level " << level << ": " << str << std::endl;
-    });
+    logger->debug("MQTTCLient::MQTTClient(): Callback setup has been completed successful");
+
 }
 
 MQTTClient::~MQTTClient() {
     stopLoop();
+    logger->debug("MQTTCLient::~MQTTClient(): MQTT main loop has been stopped");
     disconnect();
-    
+    logger->debug("MQTTCLient::~MQTTClient(): Mosquitto client has been disconnected");
     if (mosq_) {
         mosquitto_destroy(mosq_);
     }
@@ -61,11 +65,11 @@ bool MQTTClient::connect(const std::string& host, int port, int keepalive) {
     host_ = host;
     port_ = port;
     
-    std::cout << "Connecting to MQTT broker at " << host << ":" << port << std::endl;
+    logger->info("MQTTCLient::connect(): Connecting to MQTT broker at " + host + ":" + std::to_string(port));
     
     int rc = mosquitto_connect(mosq_, host_.c_str(), port_, keepalive);
     if (rc != MOSQ_ERR_SUCCESS) {
-        std::cerr << "Failed to initiate connection: " << mosquitto_strerror(rc) << std::endl;
+        logger->error("MQTTCLient::connect(): Failed to initiate connection: " + std::string(mosquitto_strerror(rc)));
         return false;
     }
         
@@ -76,6 +80,7 @@ void MQTTClient::disconnect() {
     if (mosq_ && connected_) {      
         mosquitto_disconnect(mosq_);
         connected_ = false;
+        logger->debug("MQTTCLient::disconnect(): Mosquitto client has been disconnected");
     }
 }
 
@@ -89,7 +94,7 @@ void MQTTClient::publish(const std::string& topic,
                         bool retain) {
     
     if (!connected_) {
-        std::cerr << "Not connected to MQTT broker. Queueing message." << std::endl;
+        logger->warning("MQTTCLient::publish(): Not connected to MQTT broker. Queueing message.");
         std::lock_guard<std::mutex> lock(publish_mutex_);
         publish_queue_.push({topic, message, qos, retain});
         return;
@@ -98,27 +103,28 @@ void MQTTClient::publish(const std::string& topic,
     int rc = mosquitto_publish(mosq_, nullptr, topic.c_str(), 
                                message.size(), message.c_str(), qos, retain);
     if (rc != MOSQ_ERR_SUCCESS) {
-        std::cerr << "Failed to publish to " << topic << ": " << mosquitto_strerror(rc) << std::endl;
+        logger->warning("MQTTCLient::publish(): Failed to publish to " + topic + ": " + std::string(mosquitto_strerror(rc)));
         // Сохраняем в очередь для повторной отправки
         std::lock_guard<std::mutex> lock(publish_mutex_);
         publish_queue_.push({topic, message, qos, retain});
+        logger->debug("MQTTCLient::publish(): Message has been stored in queue");
     } else {
-        std::cout << "Message has been published!" << std::endl;
+        logger->info("MQTTCLient::publish(): Message " + message + "has been published to the " + topic + "!");
     }
 }
 
 void MQTTClient::subscribe(const std::string& topic, int qos) {
 
     if (!connected_) {
-        std::cerr << "Cannot subscribe: not connected" << std::endl;
+        logger->error("MQTTCLient::subscribe(): Cannot subscribe: not connected");
         return;
     }
     
     int rc = mosquitto_subscribe(mosq_, nullptr, topic.c_str(), qos);
     if (rc != MOSQ_ERR_SUCCESS) {
-        std::cerr << "Failed to subscribe to " << topic << ": " << mosquitto_strerror(rc) << std::endl;
+        logger->error("MQTTCLient::subscribe(): Failed to subscribe to " + topic + ": " + std::string(mosquitto_strerror(rc)));
     } else {
-        std::cout << "Subscribed to topic: " << topic << std::endl;
+        logger->info("MQTTCLient::subscribe(): Subscribed to topic: " + topic + ". QoS = " + std::to_string(qos));
     }
 }
 
@@ -127,8 +133,9 @@ void MQTTClient::unsubscribe(const std::string& topic) {
     
     int rc = mosquitto_unsubscribe(mosq_, nullptr, topic.c_str());
     if (rc != MOSQ_ERR_SUCCESS) {
-        std::cerr << "Failed to unsubscribe from " << topic << ": " << mosquitto_strerror(rc) << std::endl;
+        logger->error("MQTTCLient::unsubscribe(): Failed to unsubscribe from " + topic + ": " + std::string(mosquitto_strerror(rc)));
     }
+    else logger->info("MQTTCLient::unsubscribe(): Unsubscribed from topic: " + topic);
 }
 
 void MQTTClient::on_connect(struct mosquitto* mosq, void* obj, int rc) {
@@ -136,9 +143,7 @@ void MQTTClient::on_connect(struct mosquitto* mosq, void* obj, int rc) {
     MQTTClient* client = static_cast<MQTTClient*>(obj);
     
     if (rc == 0) {
-        std::cout << "Successfully connected to MQTT broker" << std::endl;
         client->connected_ = true;
-                
         // Подписываемся на системные топики
         client->subscribe("rpi/database/save/telemetry", 1);   // Для сохранения данных с датчиков в БД
         client->subscribe("rpi/database/save/params", 1);      // Для сохранения диагностических в БД
@@ -154,7 +159,7 @@ void MQTTClient::on_connect(struct mosquitto* mosq, void* obj, int rc) {
             int result = mosquitto_publish(mosq, nullptr, topic.c_str(), 
                                           message.size(), message.c_str(), qos, retain);
             if (result == MOSQ_ERR_SUCCESS) {
-                std::cout << "Successfully published!";
+                std::cout << "All messages from queue have been successfully published!";
             }
         }
         
@@ -193,16 +198,9 @@ void MQTTClient::on_message(struct mosquitto* mosq, void* obj,
 
 void MQTTClient::on_subscribe(struct mosquitto* mosq, void* obj, 
                              int mid, int qos_count, const int* granted_qos) {
-    std::cout << "Successfully subscribed to topic (QoS: ";
-    for (int i = 0; i < qos_count; ++i) {
-        std::cout << granted_qos[i];
-        if (i < qos_count - 1) std::cout << ", ";
-    }
-    std::cout << ")" << std::endl;
 }
 
 void MQTTClient::on_unsubscribe(struct mosquitto* mosq, void* obj, int mid) {
-    std::cout << "Successfully unsubscribed from topic" << std::endl;
 }
 
 
@@ -214,8 +212,8 @@ void MQTTClient::handleMessage(const struct mosquitto_message* msg) {
     std::string topic(msg->topic);
     std::string payload(static_cast<const char*>(msg->payload), msg->payloadlen);
     
-    std::cout << "Received message on topic: " << topic << std::endl;
-    std::cout << "Payload: " << payload << std::endl;
+    logger->info("MQTTCLient::handleMessage(): Received message on topic: " + topic + "\n" + 
+                 "Payload: " + payload);
         
     // Обрабатываем сообщение
     processIncomingMessage(topic, payload);
@@ -223,18 +221,20 @@ void MQTTClient::handleMessage(const struct mosquitto_message* msg) {
 
 void MQTTClient::reconnect() {
 
-    std::cout << "Attempting to reconnect..." << std::endl;
+    logger->info("MQTTCLient::reconnect(): Attempting to reconnect...");
     
     disconnect();
+    logger->debug("MQTTCLient::reconnect(): Mosquitto client has been disconnected");
     
     // Ждем перед повторной попыткой
     std::this_thread::sleep_for(std::chrono::seconds(5));
     
     int rc = mosquitto_reconnect(mosq_);
     if (rc != MOSQ_ERR_SUCCESS) {
-        std::cerr << "Reconnection failed: " << mosquitto_strerror(rc) << std::endl;
+        logger->info("MQTTCLient::reconnect(): Reconnection failed: " + std::string(mosquitto_strerror(rc)));
         // Можно реализовать экспоненциальную backoff стратегию
     }
+    else logger->info("MQTTCLient::reconnect(): Reconnect has been completed successfully");
 }
 
 MQTTClient::Topics MQTTClient::convertStringTopicToEnum(const std::string &topic) {
@@ -244,6 +244,7 @@ MQTTClient::Topics MQTTClient::convertStringTopicToEnum(const std::string &topic
         return Topics::DB_SAVE_PARAMS;    
     if (topic == "rpi/send_message/remote")
         return Topics::REMOTE_SEND;
+    return Topics::UNDEFINED;
 }
 
 void MQTTClient::startLoop() {
@@ -251,6 +252,7 @@ void MQTTClient::startLoop() {
     
     running_ = true;
     loop_thread_ = std::thread(&MQTTClient::loopThread, this);
+    logger->debug("MQTTCLient::startLoop(): Main loop has been started");
 }
 
 void MQTTClient::stopLoop() {
@@ -260,6 +262,7 @@ void MQTTClient::stopLoop() {
     if (loop_thread_.joinable()) {
         loop_thread_.join();
     }
+    logger->debug("MQTTCLient::stopLoop(): Main loop has been stopped");
 }
 
 void MQTTClient::loopThread() {
@@ -267,10 +270,10 @@ void MQTTClient::loopThread() {
         // Обработка сетевых событий
         int rc = mosquitto_loop(mosq_, 100, 1); // timeout 100ms
         if (rc != MOSQ_ERR_SUCCESS && rc != MOSQ_ERR_NO_CONN) {
-            std::cerr << "Mosquitto loop error: " << mosquitto_strerror(rc) << std::endl;
+            logger->error("MQTTCLient::loopThread(): Mosquitto loop error: " + std::string(mosquitto_strerror(rc)));
             if (rc == MOSQ_ERR_CONN_LOST && connected_) {
                 connected_ = false;
-                std::cout << "Connection lost, attempting to reconnect..." << std::endl;
+                logger->warning("MQTTCLient::loopThread(): Connection lost, attempting to reconnect...");
                 reconnect();
             }
         }
@@ -284,12 +287,14 @@ void MQTTClient::setSendCallback(SendCallback callback) {
 }
 
 
+
 void MQTTClient::reEvaluationScenarios(const std::string& param_name, double param_value){
 
     std::vector<int> triggeredScenarios = scenarioHandler.updateParameter(param_name, param_value);
-            
+    logger->debug("MQTTCLient::reEvaluationScenarios(): List of triggered scenarios after param update has been received");
     for (auto &&tsID : triggeredScenarios){
         std::vector<long long> actIDs = db_.getScenariosActs(tsID);
+        logger->debug("MQTTCLient::reEvaluationScenarios(): List of acts to be performed has been received");
         for (auto &&actID : actIDs){ 
             if (auto res = HTTPClient->Get(get_act_info_endpoint + "/" + std::to_string(actID))) {
                 if (res->status == 200) {
@@ -300,13 +305,16 @@ void MQTTClient::reEvaluationScenarios(const std::string& param_name, double par
                     message["payload"] = actInfo["command"];
                     publish(actInfo["mqtt_topic"], message.dump(), 1);
                 } else {
-                    std::cout << "Ошибка HTTP: " << res->status << std::endl;
+                    logger->error("MQTTCLient::reEvaluationScenarios(): HTTP error: " + std::to_string(res->status));
                 }
             } else {
-                std::cout << "Не удалось подключиться к серверу" << std::endl;
+                logger->error("MQTTCLient::reEvaluationScenarios(): Connection to server hasn't been established");
             }
         }
     }
+    if (triggeredScenarios.size() > 0)
+        logger->info("MQTTCLient::reEvaluationScenarios(): All triggered scenarios have been re evaluated");
+    else logger->info("MQTTCLient::reEvaluationScenarios(): No one scenario has been triggered");
 }
 
 void MQTTClient::processIncomingMessage(const std::string& topic, 
@@ -319,30 +327,33 @@ void MQTTClient::processIncomingMessage(const std::string& topic,
     case Topics::DB_SAVE_TELEMETRY:
         try{
             db_.addTelemetry(data["module_id"], data["param_name"], data["param_value"], time(NULL), data["meas_unit"]);
+            logger->info("MQTTCLient::processIncomingMessage(): Telemetry has been saved into database");
             reEvaluationScenarios(data["param_name"], data["param_value"]);
         }
         catch(std::runtime_error &err){
-            std::cerr << err.what() << std::endl;
+            logger->error("MQTTCLient::processIncomingMessage(): An error occurred while processing telemetry: " + std::string(err.what()));
         }
         break;
     case Topics::DB_SAVE_PARAMS:
         try{
             db_.addModuleParams(data["module_id"], data["module_temp"], data["free_bytes"], time(NULL));
+            logger->info("MQTTCLient::processIncomingMessage(): Diagnostics data has been saved into database");
         }
         catch(std::runtime_error &err){
-            std::cerr << err.what() << std::endl;
+            logger->error("MQTTCLient::processIncomingMessage(): An error occurred while processing diagnostic data: " + std::string(err.what()));
         }
         break;
     case Topics::REMOTE_SEND:
         try{
             websocket_send(data.dump());
+            logger->info("MQTTCLient::processIncomingMessage(): Message has been sent to the remote server");
         }
         catch(std::runtime_error &err){
-            std::cerr << err.what() << std::endl;
+            logger->error("MQTTCLient::processIncomingMessage(): An error occurred while sending message to the remote server: " + std::string(err.what()));
         }
         break;
     default:
-        std::cout << "There is no such service topic yet." << std::endl;
+        logger->warning("MQTTCLient::processIncomingMessage(): There is no such service topic yet.");
         break;
     }
  

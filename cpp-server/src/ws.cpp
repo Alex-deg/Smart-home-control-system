@@ -1,26 +1,30 @@
 #include "../include/ws.hpp"
 
 WebSocketClient::WebSocketClient(const std::string& token, const std::string& server_url, 
-                                 DataBase &_db, ScenarioHandler &_sh)
+                                 DataBase &_db, ScenarioHandler &_sh, std::shared_ptr<liblog::Logger> _logger, bool _debugFlag)
     : m_token(token), m_server_url(server_url), m_reconnect_delay(5), 
-      m_connected(false), db(_db), scenarioHandler(_sh) {
+      m_connected(false), db(_db), scenarioHandler(_sh), logger(_logger), debugFlag(_debugFlag) {
     
     m_client.init_asio();
-    
+    logger->debug("WebSocketClient::WebSocketClient(): ASIO has been initialized");
     m_client.set_open_handler(bind(&WebSocketClient::on_open, this, ::_1));
     m_client.set_message_handler(bind(&WebSocketClient::on_message, this, ::_1, ::_2));
     m_client.set_close_handler(bind(&WebSocketClient::on_close, this, ::_1));
     m_client.set_fail_handler(bind(&WebSocketClient::on_fail, this, ::_1));
+    m_client.clear_access_channels(websocketpp::log::alevel::all);
+    m_client.set_access_channels(websocketpp::log::alevel::fail);
+    logger->debug("WebSocketClient::WebSocketClient(): Callbacks have been set");
 }
 
 void WebSocketClient::connect() {
     websocketpp::lib::error_code ec;
-    auto con = m_client.get_connection(m_server_url + m_token, ec);
+    auto con = m_client.get_connection(m_server_url + "/" + m_token, ec);
     if (ec) {
-        std::cerr << "Ошибка подключения: " << ec.message() << std::endl;
+        logger->error("WebSocketClient::connect(): Connect error: " + ec.message());
         // schedule_reconnect();
         return;
     }
+    logger->info("WebSocketClient::connect(): Connection establishing was successful");
     m_client.connect(con);
     m_client.run();
 }
@@ -30,12 +34,12 @@ void WebSocketClient::send_message(const std::string& message) {
         websocketpp::lib::error_code ec;
         m_client.send(m_hdl, message, websocketpp::frame::opcode::text, ec);
         if (ec) {
-            std::cerr << "Ошибка отправки: " << ec.message() << std::endl;
+            logger->error("WebSocketClient::send_message(): Sending error: " + ec.message());
         } else {
-            std::cout << "[->] Отправлено: " << message << std::endl;
+            logger->info("WebSocketClient::send_message(): [=>] Sends: " + message);
         }
     } else {
-        std::cerr << "Соединение не активно, отправка невозможна" << std::endl;
+        logger->error("WebSocketClient::send_message(): Connection isn't active, sending impossible");
     }
 }
 
@@ -53,7 +57,7 @@ void WebSocketClient::set_on_command(CommandCallback cb) {
 }
 
 void WebSocketClient::on_open(connection_hdl hdl) {
-    std::cout << "[+] WebSocket соединение установлено" << std::endl;
+    logger->info("WebSocketClient::on_open(): [+] WebSocket соединение установлено");
     m_hdl = hdl;
     m_connected = true;
     
@@ -65,7 +69,7 @@ void WebSocketClient::on_open(connection_hdl hdl) {
 
 void WebSocketClient::on_message(connection_hdl hdl, client::message_ptr msg) {
     std::string payload = msg->get_payload();
-    std::cout << "[<-] Получено: " << payload << std::endl;
+    logger->info("WebSocketClient::on_message(): [<-] Recieved: " + payload);
     
     try {
         json data = json::parse(payload);
@@ -76,29 +80,36 @@ void WebSocketClient::on_message(connection_hdl hdl, client::message_ptr msg) {
             m_mqtt_publish(data["params"]["mqtt_topic"], payload.dump(), 1);
         }
         if(data["type"] == "scenario"){
-            long long scenarioID = db.addScenario(data["scenario"]["name"], data["scenario"]["condition"]);
-            std::vector<long long> actIDs = data["scenario"]["acts"];
-            for (auto actID : actIDs){
-                db.addScenariosAct(scenarioID, actID);
+            long long scenarioID;
+            try{
+                scenarioID = db.addScenario(data["scenario"]["name"], data["scenario"]["condition"]);
+                std::vector<long long> actIDs = data["scenario"]["acts"];
+                for (auto actID : actIDs){
+                    db.addScenariosAct(scenarioID, actID);
+                }
+                scenarioHandler.addScenario(scenarioID, data["scenario"]["condition"]);
+                logger->info("WebSocketClient::on_message(): Scenario has been added into database and ScenarioHandler successfully");
             }
-            scenarioHandler.addScenario(scenarioID, data["scenario"]["condition"]);
+            catch(std::runtime_error &e){
+                logger->error("WebSocketClient::on_message(): Error occured while adding scenario: " + std::string(e.what()));
+            }
         }
     }
     catch (const json::parse_error& e) {
-        std::cout << "  (Обычное текстовое сообщение)" << std::endl;
+        logger->warning("WebSocketClient::on_message(): Not allowed message has been received from remote server");
     }
 }
 
 void WebSocketClient::on_close(connection_hdl hdl) {
-    std::cout << "[-] Соединение закрыто. Переподключение через " 
-                << m_reconnect_delay << " секунд..." << std::endl;
+    logger->warning("WebSocketClient::on_close(): [-] Connection closed. Reconnect after " 
+                + std::to_string(m_reconnect_delay) + " seconds...");
     m_connected = false;
     // schedule_reconnect();
 }
 
 void WebSocketClient::on_fail(connection_hdl hdl) {
-    std::cout << "[!] Ошибка соединения. Переподключение через " 
-                << m_reconnect_delay << " секунд..." << std::endl;
+    logger->error("WebSocketClient::on_fail(): [!] Connection error. Reconnect after " 
+                + std::to_string(m_reconnect_delay) + " seconds...");
     m_connected = false;
     // schedule_reconnect();
 }
@@ -108,7 +119,7 @@ void WebSocketClient::send(const std::string& message) {
         websocketpp::lib::error_code ec;
         m_client.send(m_hdl, message, websocketpp::frame::opcode::text, ec);
         if (ec) {
-            std::cerr << "Ошибка отправки: " << ec.message() << std::endl;
+            logger->error("WebSocketClient::send(): Sending error: " + ec.message());
         }
     }
 }
