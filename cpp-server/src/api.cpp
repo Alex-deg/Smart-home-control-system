@@ -28,7 +28,7 @@ crow::response API::getTelemetry(long long module_id, const std::string &param_n
     catch(DataBaseException &e){
         resp["status"] = false;
         resp["message"] = "Получение телеметрии прошло с ошибкой";
-        logger->error("API::getTelemetry(): Receiving telemetry occured with error: " + e.what());
+        logger->error("API::getTelemetry(): Receiving telemetry occured with error: " + std::string(e.what()));
     }            
     res.write(json(resp).dump(2));
     return res;
@@ -48,7 +48,7 @@ crow::response API::anomalyTagging(std::vector<long long> record_ids)
     catch(DataBaseException &e){
         resp["status"] = false;
         resp["message"] = "Отметка аномальных данных прошла с ошибкой";
-        logger->error("API::anomalyTagging(): Anomaly tagging occured with error: " + e.what());
+        logger->error("API::anomalyTagging(): Anomaly tagging occured with error: " + std::string(e.what()));
     }            
     res.write(json(resp).dump(2));           
     return res;
@@ -68,7 +68,7 @@ crow::response API::getModuleParams(long long module_id, int time_interval, bool
     catch(DataBaseException &e){
         resp["status"] = false;
         resp["message"] = "Получение данных прошло с ошибкой";
-        logger->error("API::getModuleParams(): Receiving diagnostic data occured with error: " + e.what());
+        logger->error("API::getModuleParams(): Receiving diagnostic data occured with error: " + std::string(e.what()));
     }            
     res.write(json(resp).dump(2));           
     return res;
@@ -88,7 +88,7 @@ crow::response API::getUniqueModuleIDs()
     catch(DataBaseException &e){
         resp["status"] = false;
         resp["message"] = "Получение данных прошло с ошибкой";
-        logger->error("API::getUniqueModuleIDs(): Receiving unique module ids occured with error: " + e.what());
+        logger->error("API::getUniqueModuleIDs(): Receiving unique module ids occured with error: " + std::string(e.what()));
     }            
     res.write(json(resp).dump(2));           
     return res;
