@@ -11,14 +11,16 @@ WebSocketClient::WebSocketClient(const std::string& token, const std::string& se
     m_client.set_message_handler(bind(&WebSocketClient::on_message, this, ::_1, ::_2));
     m_client.set_close_handler(bind(&WebSocketClient::on_close, this, ::_1));
     m_client.set_fail_handler(bind(&WebSocketClient::on_fail, this, ::_1));
+    m_client.clear_access_channels(websocketpp::log::alevel::all);
+    m_client.set_access_channels(websocketpp::log::alevel::fail);
     logger->debug("WebSocketClient::WebSocketClient(): Callbacks have been set");
 }
 
 void WebSocketClient::connect() {
     websocketpp::lib::error_code ec;
-    auto con = m_client.get_connection(m_server_url + m_token, ec);
+    auto con = m_client.get_connection(m_server_url + "/" + m_token, ec);
     if (ec) {
-        logger->error("WebSocketClient::connect(): WebSocketClient::connect(): Connect error: " + ec.message());
+        logger->error("WebSocketClient::connect(): Connect error: " + ec.message());
         // schedule_reconnect();
         return;
     }
@@ -89,7 +91,7 @@ void WebSocketClient::on_message(connection_hdl hdl, client::message_ptr msg) {
                 logger->info("WebSocketClient::on_message(): Scenario has been added into database and ScenarioHandler successfully");
             }
             catch(std::runtime_error &e){
-                logger->error("WebSocketClient::on_message(): Error occured while adding scenario: " + e.what());
+                logger->error("WebSocketClient::on_message(): Error occured while adding scenario: " + std::string(e.what()));
             }
         }
     }
