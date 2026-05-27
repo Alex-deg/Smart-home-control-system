@@ -660,7 +660,9 @@ class Database(IDataBase):
             "WHERE token = ?;"
         )
         response = self.execute_query(sql, [token])
-        return response.get_int(0, "id")
+        if response.size() > 0:
+            return response.get_int(0, "id")
+        return -1
 
     def is_server_exist(self, token : str) -> bool:
         sql = (
