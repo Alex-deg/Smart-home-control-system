@@ -49,6 +49,16 @@ async def add_server(user_id: int, name : str = Body(...)):
         return {"server_token": server_token}
     return "non authenticated"
 
+@app.post("/api/users/{user_id}/servers/connect")
+async def add_server(user_id: int, token : str = Body(...)):
+    if db.check_auth(user_id):
+        server_id = db.get_server_id_by_token(token)
+        if server_id <= 0:
+            return "incorrect token"
+        db.add_users_servers(user_id, server_id)
+        return "you are connected to an existing server"
+    return "non authenticated"
+
 @app.delete("/api/users/{user_id}/servers/{server_id}/delete")
 async def delete_server(user_id : int, server_id: int):
     if db.check_auth(user_id):
