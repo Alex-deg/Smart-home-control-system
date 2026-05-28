@@ -15,7 +15,7 @@ load_dotenv(".env")
 
 BASE_API_URL = f"http://{os.getenv("LOCAL_SERVER_IP")}:{os.getenv("LOCAL_API_PORT")}"
 MQTT_BROKER  = os.getenv("MQTT_BROKER")
-MQTT_PORT    = os.getenv("MQTT_PORT")
+MQTT_PORT    = int(os.getenv("MQTT_PORT"))
 MQTT_TOPIC   = os.getenv("MQTT_TOPIC") # topic for send message to remote server
 MODEL_DIR    = os.getenv("MODEL_DIR")
 FETCH_DIAGNOSTIC_DATA_ENDPOINT = os.getenv("FETCH_DIAGNOSTIC_DATA_ENDPOINT")
