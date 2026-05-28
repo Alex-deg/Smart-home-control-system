@@ -157,7 +157,7 @@ class DiagnosticModule:
     def _retrain_all_modules(self) -> None:
         modules = self._fetch_module_ids()
         for module_id in modules:
-            self._train_model_for_module(module_id)
+            self._train_model_for_module(module_id['id'])
 
     def _detect_anomalies_for_module(self, module_id: int) -> None:
         model_path, scaler_path = self._model_paths(module_id)
@@ -199,7 +199,7 @@ class DiagnosticModule:
     def _daily_detection(self) -> None:
         modules = self._fetch_module_ids()
         for module_id in modules:
-            self._detect_anomalies_for_module(module_id)
+            self._detect_anomalies_for_module(module_id['id'])
 
 
 if __name__ == "__main__":
