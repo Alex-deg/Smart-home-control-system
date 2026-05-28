@@ -39,7 +39,8 @@ async def registration(login : str = Body(...), password : str = Body(...)):
 async def show_servers(user_id: int):
     if db.check_auth(user_id):
         return db.get_servers(user_id)
-    return "non authenticated"
+    else:
+        return "non authenticated"
 
 @app.post("/api/users/{user_id}/servers/add")
 async def add_server(user_id: int, name : str = Body(...)):
@@ -47,7 +48,8 @@ async def add_server(user_id: int, name : str = Body(...)):
         server_token = str(uuid.uuid4())
         temp_servers[server_token] = {"user_id" : user_id, "server_name" : name}
         return {"server_token": server_token}
-    return "non authenticated"
+    else:
+        return "non authenticated"
 
 @app.post("/api/users/{user_id}/servers/connect")
 async def add_server(user_id: int, token : str = Body(...)):
@@ -57,7 +59,8 @@ async def add_server(user_id: int, token : str = Body(...)):
             return "incorrect token"
         db.add_users_servers(user_id, server_id)
         return "you are connected to an existing server"
-    return "non authenticated"
+    else: 
+        return "non authenticated"
 
 @app.delete("/api/users/{user_id}/servers/{server_id}/delete")
 async def delete_server(user_id : int, server_id: int):
@@ -92,40 +95,46 @@ async def add_module(user_id : int, server_id : int, name : str = Body(...), ali
     if db.check_auth(user_id):
         db.add_module(server_id, name, alias, mqtt_topic, description)
         return True
-    return "non authenticated"
+    else: 
+        return "non authenticated"
     
 @app.delete("/api/users/{user_id}/servers/{server_id}/modules/{module_id}/delete")
 async def delete_module(user_id : int, module_id : int):
     if db.check_auth(user_id):
         db.delete_module_from_tables(module_id)
         return True
-    return "non authenticated"
+    else:
+        return "non authenticated"
 
 @app.get("/api/users/{user_id}/servers/{server_id}/modules/{module_id}/capabilities")
 async def show_capabilities(user_id: int, server_id: str, module_id: str):
     if db.check_auth(user_id):
         return db.get_capabilities(module_id)
-    return "non authenticated"
+    else:
+        return "non authenticated"
 
 @app.post("/api/users/{user_id}/servers/{server_id}/modules/{module_id}/capabilities/add")
 async def add_capability(user_id : int, module_id : int, name : str = Body(...)):
     if db.check_auth(user_id):
         db.add_capability(module_id, name)
         return True
-    return "non authenticated"
+    else: 
+        return "non authenticated"
     
 @app.delete("/api/users/{user_id}/servers/{server_id}/modules/{module_id}/capabilities/{capability_id}/delete")
 async def delete_capability(user_id : int, capability_id : int):
     if db.check_auth(user_id):
         db.delete_capability_from_tables(capability_id)
-    return "non authenticated"
+    else:
+        return "non authenticated"
 
 @app.post("/api/users/{user_id}/servers/{server_id}/modules/{module_id}/capabilities/{capability_id}/unbind")
 async def undind_module_capability(user_id : int, module_id : int, capability_id : int):
     if db.check_auth(user_id):
         db.unbind_module_capability(module_id, capability_id)
         return True
-    return "non authenticated"
+    else:
+        return "non authenticated"
 
 @app.post("/api/users/{user_id}/servers/{server_id}/modules/{module_id}/capability/{capbility_id}/send_command")
 async def send_command(user_id: int, server_id: int, module_id : int, capability_id : int):
@@ -165,7 +174,8 @@ async def send_command(user_id: int, server_id: int, module_id : int, capability
                 pending_requests.pop(request_id, None)
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    return "non authenticated"
+    else: 
+        return "non authenticated"
 
 @app.post("/api/users/{user_id}/servers/{server_id}/add_scenario")
 async def add_scenario_and_send(user_id: int, server_id : int, scenario_name : str, 
@@ -191,7 +201,8 @@ async def add_scenario_and_send(user_id: int, server_id : int, scenario_name : s
             await ws.send_text(json.dumps(message))
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
-    return "non authenticated"
+    else:
+        return "non authenticated"
     
 @app.get("/api/get_act_info/{act_id}")
 async def get_act_info(act_id : int):
