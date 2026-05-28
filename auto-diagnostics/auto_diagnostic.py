@@ -74,7 +74,7 @@ class DiagnosticModule:
 
     def _model_paths(self, module_id: int) -> tuple[str, str]:
         base = self._model_dir / f"isoforest_{module_id}"
-        return str(base.with_suffix('.pkl')), str(base.with_suffix('_scaler.pkl'))
+        return str(base) + ".pkl", str(base) + "_scaler.pkl"
 
     def _fetch_module_ids(self) -> List[int]:
         url = f"{self._base_api_url}{FETCH_MODULE_IDS_ENDPOINT}"
