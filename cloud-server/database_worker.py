@@ -674,6 +674,18 @@ class Database(IDataBase):
         response =self.execute_query(sql, [token])
         return response.size() > 0
 
+    def is_module_exist(self, server_id : int, topic : str) -> int:
+        sql = (
+            "SELECT "
+            "    id "
+            "FROM modules "
+            "WHERE server_id = ? AND mqtt_topic = ?;"
+        )
+        response = self.execute_query(sql, [server_id, topic])
+        if response.size() > 0:
+            return response.get_int(0, "id")
+        return -1
+
     def delete_table_by_name(self, name : str):
         sql = "DROP TABLE " + name
         self.execute_request(sql)

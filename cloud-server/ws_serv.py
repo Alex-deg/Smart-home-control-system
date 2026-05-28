@@ -205,7 +205,9 @@ async def auto_detect(token : str = Body(...), name : str = Body(...), alias : s
     
     server_id = db.get_server_id_by_token(token)
     if db.check_auth(db.get_user_id_by_server_id(server_id)):
-        module_id = db.add_module(server_id, name, alias, mqtt_topic, description)
+        module_id = db.is_module_exist(server_id, mqtt_topic)
+        if module_id == -1:
+            module_id = db.add_module(server_id, name, alias, mqtt_topic, description)
         return {"module_id" : module_id}
     return "non authenticated"
 
