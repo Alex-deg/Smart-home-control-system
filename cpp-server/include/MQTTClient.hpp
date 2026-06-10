@@ -30,6 +30,7 @@ public:
         DB_SAVE_TELEMETRY = 0,
         DB_SAVE_PARAMS, 
         REMOTE_SEND,
+        LOCAL_SEND,
         TOPICS_N
     };
 
@@ -37,6 +38,8 @@ public:
                                                const std::string& payload)>;
     
     using SendCallback = std::function<void(const std::string& message)>;
+    using CommandResponseCallback = std::function<void(const std::string& request_id, 
+                                                       const nlohmann::json& payload)>;
 
     explicit MQTTClient(DataBase& db, ScenarioHandler &sh, const std::string& _base_api_url, 
                         const std::string& _get_act_info_endpoint, std::shared_ptr<Logger> _logger,
@@ -65,7 +68,8 @@ public:
     void reEvaluationScenarios(const std::string& param_name, double param_value);
     void processIncomingMessage(const std::string& topic, 
                                 const std::string& payload);
-    
+        
+    void setOnCommandResponse(CommandResponseCallback callback);
 private:
 
     static void on_connect(struct mosquitto* mosq, void* obj, int rc);
@@ -108,6 +112,7 @@ private:
     std::condition_variable loop_cv_;   
     
     SendCallback websocket_send;
+    CommandResponseCallback on_command_response_;
 
     std::unique_ptr<httplib::Client> HTTPClient = nullptr;
     std::string base_api_url;

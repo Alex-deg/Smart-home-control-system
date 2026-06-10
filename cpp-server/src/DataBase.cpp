@@ -461,7 +461,7 @@ void DataBase::addScenariosAct(long long scenario_id, long long act_id){
 }
 
 long long DataBase::addModule(const std::string& name, const std::string& alias, 
-                              const std::string& mqtt_topic, const std::string& description = "") {
+                              const std::string& mqtt_topic, const std::string& description) {
     
     std::string sql = R"(
         INSERT INTO modules (name, alias, mqtt_topic, description)

@@ -244,6 +244,8 @@ MQTTClient::Topics MQTTClient::convertStringTopicToEnum(const std::string &topic
         return Topics::DB_SAVE_PARAMS;    
     if (topic == "rpi/send_message/remote")
         return Topics::REMOTE_SEND;
+    if (topic == "rpi/send_message/local/api")
+        return Topics::LOCAL_SEND;
     return Topics::UNDEFINED;
 }
 
@@ -352,9 +354,21 @@ void MQTTClient::processIncomingMessage(const std::string& topic,
             logger->error("MQTTCLient::processIncomingMessage(): An error occurred while sending message to the remote server: " + std::string(err.what()));
         }
         break;
+    case Topics::LOCAL_SEND:
+        if (data.contains("request_id") && data.contains("type") && data["type"] == "response") {
+            std::string request_id = data["request_id"];
+            
+            if (on_command_response_) {
+                on_command_response_(request_id, data["payload"]);
+            }
+        }
+        break;
     default:
         logger->warning("MQTTCLient::processIncomingMessage(): There is no such service topic yet.");
         break;
     }
- 
+}
+
+void MQTTClient::setOnCommandResponse(CommandResponseCallback callback) {
+    on_command_response_ = callback;
 }
