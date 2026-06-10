@@ -260,6 +260,39 @@ void DataBase::createScenariosActsTable(){
     )");
 }
 
+void DataBase::createModulesTable() {
+    executeRequest(R"(
+        CREATE TABLE IF NOT EXISTS modules (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            alias TEXT NOT NULL,
+            mqtt_topic TEXT NOT NULL,
+            description TEXT
+        );
+    )");
+}
+
+void DataBase::createCapabilitiesTable() {
+    executeRequest(R"(
+        CREATE TABLE IF NOT EXISTS capabilities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL
+        );
+    )");
+}
+
+void DataBase::createModulesCapabilitiesTable() {
+    executeRequest(R"(
+        CREATE TABLE IF NOT EXISTS modules_capabilities (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            module_id INTEGER NOT NULL,
+            capability_id INTEGER NOT NULL,
+            FOREIGN KEY (module_id) REFERENCES modules(id),
+            FOREIGN KEY (capability_id) REFERENCES capabilities(id)
+        );
+    )");
+}
+
 void DataBase::deleteTelemetryTable(){
 
     /**
@@ -348,6 +381,18 @@ void DataBase::clearScenariosActsTable(){
     )");
 }
 
+void DataBase::clearModulesTable() {
+    executeRequest("DELETE FROM modules;");
+}
+
+void DataBase::clearCapabilitiesTable() {
+    executeRequest("DELETE FROM capabilities;");
+}
+
+void DataBase::clearModulesCapabilitiesTable() {
+    executeRequest("DELETE FROM modules_capabilities;");
+}
+
 void DataBase::addTelemetry(long long module_id, const std::string &param_name, 
                             double param_value, int timestamp, const std::string& meas_unit){
           
@@ -413,6 +458,91 @@ void DataBase::addScenariosAct(long long scenario_id, long long act_id){
         VALUES (?, ?)
     )";
     executeRequest(sql, {scenario_id, act_id});
+}
+
+long long DataBase::addModule(const std::string& name, const std::string& alias, 
+                              const std::string& mqtt_topic, const std::string& description = "") {
+    
+    std::string sql = R"(
+        INSERT INTO modules (name, alias, mqtt_topic, description)
+        VALUES (?, ?, ?, ?);         
+    )";
+
+    executeRequest(sql, {name, alias, mqtt_topic, description});
+    
+    // Получение последнего ID
+    auto response = executeQuery("SELECT last_insert_rowid();");
+    if (response.empty()) {
+        throw DataBaseException("Failed to get last insert rowid");
+    }
+    return response.get<long long>(0, 0);
+}
+
+void DataBase::addCapability(long long module_id, const std::string& name) {
+    
+    std::string sql = R"(
+        SELECT id FROM capabilities WHERE name = ?;
+    )";
+    // Проверка на уже существующую функцию
+    auto checkResponse = executeQuery(sql, {name});
+    
+    long long capability_id;
+    if (!checkResponse.empty()) {
+        capability_id = checkResponse.get<long long>(0, 0);
+    } else {
+        // Добавление новой возможности
+        executeRequest("INSERT INTO capabilities (name) VALUES (?);", {name});
+        
+        auto idResponse = executeQuery("SELECT last_insert_rowid();");
+        if (idResponse.empty()) {
+            throw DataBaseException("Failed to get last insert rowid for capability");
+        }
+        capability_id = idResponse.get<long long>(0, 0);
+    }
+    
+    addModulesCapabilities(module_id, capability_id);
+}
+
+void DataBase::addModulesCapabilities(long long module_id, long long capability_id) {
+    executeRequest(
+        "INSERT INTO modules_capabilities (module_id, capability_id) "
+        "VALUES (?, ?);",
+        {module_id, capability_id}
+    );
+}
+
+void DataBase::deleteModuleFromTables(long long module_id) {
+    // Удаление из сводной таблицы
+    executeRequest(
+        "DELETE FROM modules_capabilities WHERE module_id = ?;",
+        {module_id}
+    );
+    // Удаление из таблицы модулей
+    executeRequest(
+        "DELETE FROM modules WHERE id = ?;",
+        {module_id}
+    );
+}
+
+void DataBase::deleteCapabilityFromTables(long long capability_id) {
+    // Удаление из сводной таблицы
+    executeRequest(
+        "DELETE FROM modules_capabilities WHERE capability_id = ?;",
+        {capability_id}
+    );
+    // Удаление из таблицы возможностей
+    executeRequest(
+        "DELETE FROM capabilities WHERE id = ?;",
+        {capability_id}
+    );
+}
+
+void DataBase::unbindModuleCapability(long long module_id, long long capability_id) {
+    executeRequest(
+        "DELETE FROM modules_capabilities "
+        "WHERE module_id = ? AND capability_id = ?;",
+        {module_id, capability_id}
+    );
 }
 
 /// @brief Получение значений param_name параметра с module_id модуля за последние time_interval МИНУТ
@@ -483,6 +613,120 @@ std::vector<long long> DataBase::getScenariosActs(long long scenario_id){
         actIDs.push_back(response.get<long long>(i, "act_id"));
     }
     return actIDs;
+}
+
+std::vector<json> DataBase::getModules(){
+    
+    std::vector<json> list_of_modules;
+    
+    std::string sql = R"(
+        SELECT id, name, alias, mqtt_topic, description
+        FROM modules;
+    )";
+
+    QueryResult response = executeQuery(sql);
+    
+    for (size_t i = 0; i < response.size(); ++i) {
+        json module;
+        module["id"] = response.get<long long>(i, "id");
+        module["name"] = response.get<std::string>(i, "name");
+        module["alias"] = response.get<std::string>(i, "alias");
+        module["mqtt_topic"] = response.get<std::string>(i, "mqtt_topic");
+        module["description"] = response.get<std::string>(i, "description");
+        list_of_modules.push_back(module);
+    }
+    
+    return list_of_modules;
+}
+
+std::vector<json> DataBase::getCapabilities(long long module_id) {
+    std::vector<json> list_of_capabilities;
+    
+    std::string sql = R"(
+        SELECT c.id, c.name
+        FROM modules_capabilities mc 
+        JOIN capabilities c ON mc.capability_id = c.id 
+        WHERE mc.module_id = ?;
+    )";
+
+    auto response = executeQuery(sql, {module_id});
+    
+    for (size_t i = 0; i < response.size(); ++i) {
+        json capability;
+        capability["id"] = response.get<long long>(i, "id");
+        capability["name"] = response.get<std::string>(i, "name");
+        list_of_capabilities.push_back(capability);
+    }
+    
+    return list_of_capabilities;
+}
+
+json DataBase::getModuleInfo(long long module_id) {
+    auto response = executeQuery(
+        "SELECT * FROM modules WHERE id = ?;",
+        {module_id}
+    );
+    
+    if (response.empty()) {
+        throw DataBaseException("Module not found with id: " + std::to_string(module_id));
+    }
+    
+    json module_info;
+    module_info["id"] = response.get<long long>(0, "id");
+    module_info["name"] = response.get<std::string>(0, "name");
+    module_info["alias"] = response.get<std::string>(0, "alias");
+    module_info["mqtt_topic"] = response.get<std::string>(0, "mqtt_topic");
+    module_info["description"] = response.get<std::string>(0, "description");
+    
+    return module_info;
+}
+
+json DataBase::getCapabilityInfo(long long capability_id) {
+    auto response = executeQuery(
+        "SELECT * FROM capabilities WHERE id = ?;",
+        {capability_id}
+    );
+    
+    if (response.empty()) {
+        throw DataBaseException("Capability not found with id: " + std::to_string(capability_id));
+    }
+    
+    json capability_info;
+    capability_info["id"] = response.get<long long>(0, "id");
+    capability_info["name"] = response.get<std::string>(0, "name");
+    
+    return capability_info;
+}
+
+json DataBase::getActInfo(long long actID) {
+    auto response = executeQuery(
+        "SELECT m.mqtt_topic, c.name "
+        "FROM modules_capabilities mc "
+        "JOIN modules m ON mc.module_id = m.id "
+        "JOIN capabilities c ON mc.capability_id = c.id "
+        "WHERE mc.id = ?;",
+        {actID}
+    );
+    
+    json act;
+    if (!response.empty()) {
+        act["mqtt_topic"] = response.get<std::string>(0, "mqtt_topic");
+        act["command"] = response.get<std::string>(0, "name");
+    }
+    
+    return act;
+}
+
+long long DataBase::isModuleExist(const std::string& topic) {
+    auto response = executeQuery(
+        "SELECT id FROM modules WHERE mqtt_topic = ?;",
+        {topic}
+    );
+    
+    if (!response.empty()) {
+        return response.get<long long>(0, "id");
+    }
+    return -1;
 }
 
 void DataBase::anomalyTagging(std::vector<long long> record_ids){

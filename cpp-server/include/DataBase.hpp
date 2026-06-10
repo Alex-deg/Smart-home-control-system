@@ -66,6 +66,9 @@ public:
     void createScenariosTable();
     void createModuleParamsTable();
     void createScenariosActsTable();
+    void createModulesTable();
+    void createCapabilitiesTable();
+    void createModulesCapabilitiesTable();
 
     void deleteTelemetryTable();
     void deleteScenariosTable();
@@ -76,6 +79,9 @@ public:
     void clearScenariosTable();
     void clearModuleParamsTable();
     void clearScenariosActsTable();
+    void clearModulesTable();
+    void clearCapabilitiesTable();
+    void clearModulesCapabilitiesTable();
 
     void addTelemetry(long long module_id, const std::string& param_name,
                       double param_value, int timestamp, const std::string& meas_unit = "");
@@ -83,12 +89,26 @@ public:
                          int timestamp, bool anomaly = false);
     void addScenariosAct(long long scenario_id, long long act_id);
     long long addScenario(const std::string& name, const std::string& condition);
+    long long addModule(const std::string& name, const std::string& alias, 
+                        const std::string& mqtt_topic, const std::string& description = "");
+    void addCapability(long long module_id, const std::string& name);
+    void addModulesCapabilities(long long module_id, long long capability_id);
+
+    void deleteModuleFromTables(long long module_id);
+    void deleteCapabilityFromTables(long long capability_id);
+    void unbindModuleCapability(long long module_id, long long capability_id);
 
     std::vector<json> getTelemtry(long long module_id, const std::string& param_name,
                                   int time_interval);
     std::vector<json> getModuleParams(long long module_id, int time_interval, bool with_anomalies);
     std::vector<json> getUniqueModuleIDs();
     std::vector<long long> getScenariosActs(long long scenario_id);
+    std::vector<json> getModules();
+    std::vector<json> getCapabilities(long long module_id);
+    json getModuleInfo(long long module_id);
+    json getCapabilityInfo(long long capability_id);
+    json getActInfo(long long actID);
+    long long isModuleExist(const std::string& topic);
 
     void anomalyTagging(std::vector<long long> record_ids);
 
