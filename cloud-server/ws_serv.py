@@ -157,6 +157,7 @@ async def send_command(user_id: int, server_id: int, module_id : int, capability
 
             message  =  {
                             "type" : "command",
+                            "internet" : True,
                             "request_id" : request_id,
                             "params" : {
                                 "mqtt_topic" : module_info["mqtt_topic"], 
