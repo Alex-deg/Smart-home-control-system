@@ -151,6 +151,8 @@ crow::response API::autodetection(crow::json::rvalue input)
         data["alias"] = input["alias"];
         data["description"] = input["description"];
 
+        db.addModule(input["name"].s(), input["mqtt_topic"].s(), input["alias"].s(), input["description"].s());
+
         httplib::Client client(baseRemoteApiUrl);
         httplib::Headers headers = {
             {"Content-Type", "application/json"}
