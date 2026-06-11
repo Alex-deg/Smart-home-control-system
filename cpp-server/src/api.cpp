@@ -406,7 +406,16 @@ void API::setupRoutes()
 
     CROW_ROUTE(app, "/")
     ([this](){
-        return "HELLO :)";
+        std::ifstream file("../web/index.html");  
+        if (!file.is_open()) {
+            return crow::response(404, "File not found");
+        }
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        crow::response res;
+        res.set_header("Content-Type", "text/html; charset=utf-8");
+        res.write(buffer.str());
+        return res;
     });
 
     CROW_ROUTE(app, "/api/database/telemetry")
