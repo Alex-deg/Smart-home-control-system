@@ -698,6 +698,19 @@ json DataBase::getCapabilityInfo(long long capability_id) {
     return capability_info;
 }
 
+long long DataBase::getActID(long long module_id, long long capability_id){
+    std::string sql = R"(
+        SELECT
+            id
+        FROM modules_capabilities
+        WHERE module_id = ? AND capability_id = ?
+    )";
+    QueryResult response = executeQuery(sql, {module_id, capability_id});
+    if (response.size() == 1)
+        return response.get<long long>(0, "id");
+    return -1;
+}
+
 json DataBase::getActInfo(long long actID) {
     auto response = executeQuery(
         "SELECT m.mqtt_topic, c.name "

@@ -107,6 +107,7 @@ public:
     std::vector<json> getCapabilities(long long module_id);
     json getModuleInfo(long long module_id);
     json getCapabilityInfo(long long capability_id);
+    long long getActID(long long module_id, long long capability_id);
     json getActInfo(long long actID);
     long long isModuleExist(const std::string& topic);
 
