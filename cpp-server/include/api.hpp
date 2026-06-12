@@ -30,8 +30,18 @@ private:
     CommandCallback mqttPublish;
     bool debugFlag;
     struct PendingRequest {
-        std::promise<nlohmann::json> promise;
+        std::shared_ptr<std::promise<nlohmann::json>> promise;
         std::chrono::steady_clock::time_point timestamp;
+        
+        PendingRequest(std::shared_ptr<std::promise<nlohmann::json>> p,
+                    std::chrono::steady_clock::time_point t)
+            : promise(p), timestamp(t) {}
+        
+        PendingRequest(PendingRequest&&) = default;
+        PendingRequest& operator=(PendingRequest&&) = default;
+        
+        PendingRequest(const PendingRequest&) = delete;
+        PendingRequest& operator=(const PendingRequest&) = delete;
     };
     std::shared_ptr<MQTTClient> mqtt_client_;
     std::unordered_map<std::string, PendingRequest> pending_requests_;

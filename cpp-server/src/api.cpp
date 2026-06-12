@@ -47,13 +47,10 @@ void API::setMQTTClient(std::shared_ptr<MQTTClient> client) {
 void API::initMQTT() {
     mqtt_client_->setOnCommandResponse([this](const std::string& request_id, const nlohmann::json& payload) {
         std::lock_guard<std::mutex> lock(pending_mutex_);
-        
         auto it = pending_requests_.find(request_id);
         if (it != pending_requests_.end()) {
-            it->second.promise.set_value(payload);
+            it->second.promise->set_value(payload);
             pending_requests_.erase(it);
-        } else {
-            logger->warning("API::onCommandResponse(): Unknown request_id: " + request_id);
         }
     });
 }
@@ -151,7 +148,7 @@ crow::response API::autodetection(crow::json::rvalue input)
         data["alias"] = input["alias"];
         data["description"] = input["description"];
 
-        db.addModule(input["name"].s(), input["mqtt_topic"].s(), input["alias"].s(), input["description"].s());
+        db.addModule(input["name"].s(), input["alias"].s(), input["mqtt_topic"].s(), input["description"].s());
 
         httplib::Client client(baseRemoteApiUrl);
         httplib::Headers headers = {
@@ -327,7 +324,6 @@ crow::response API::sendCommand(long long module_id, long long capability_id)
     res.add_header("Content-Type", "application/json; charset=utf-8");
     json resp;
     try {
-
         auto module_info = db.getModuleInfo(module_id);
         auto capability_info = db.getCapabilityInfo(capability_id);
         
@@ -336,19 +332,19 @@ crow::response API::sendCommand(long long module_id, long long capability_id)
         json message;
         message["internet"] = false;
         message["request_id"] = request_id;
-        message["params"]["mqtt_topic"] = module_info["mqtt_topic"];
-        message["params"]["payload"] = capability_info["name"];
+        message["payload"] = capability_info["name"];
         
-        std::promise<json> promise;
-        auto future = promise.get_future();
+        // Создаём promise через shared_ptr
+        auto promise = std::make_shared<std::promise<json>>();
+        auto future = promise->get_future();
         
         {
             std::lock_guard<std::mutex> lock(pending_mutex_);
-            pending_requests_[request_id] = {std::move(promise), std::chrono::steady_clock::now()};
+            pending_requests_.emplace(request_id, 
+                              PendingRequest(promise, std::chrono::steady_clock::now()));
         }
-        
-        mqtt_client_->publish(module_info["mqtt_topic"], json{{"command", capability_info["name"]}, 
-                                                              {"request_id", request_id}}.dump(), 1);
+
+        mqtt_client_->publish(module_info["mqtt_topic"], message.dump(), 1);
         
         auto status = future.wait_for(std::chrono::seconds(10));
         
@@ -372,9 +368,11 @@ crow::response API::sendCommand(long long module_id, long long capability_id)
         res.code = 200;
         logger->info("API::sendCommand(): Command sent successfully, response received");        
     } catch (const std::exception& e) {
+        logger->error("API::sendCommand(): " + std::string(e.what()));
         resp["status"] = "fault";
         resp["message"] = "Отправка команды прошла с ошибкой";
         res.write(resp.dump(2));
+        res.code = 500;
     }
     return res;
 }
