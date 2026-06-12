@@ -149,6 +149,7 @@ void MQTTClient::on_connect(struct mosquitto* mosq, void* obj, int rc) {
         client->subscribe("rpi/database/save/params", 1);      // Для сохранения диагностических в БД
         client->subscribe("rpi/database/get/telemetry", 1);    // Для получения данных с датчиков из БД
         client->subscribe("rpi/send_message/remote", 1);       // Для отправки ответа серверу на команду
+        client->subscribe("rpi/send_message/local/api", 1);    // Для получения ответа на команду
         
         // Отправляем сообщения из очереди
         std::lock_guard<std::mutex> lock(client->publish_mutex_);
