@@ -133,6 +133,8 @@ int main(){
 
     API api(db, logger, Settings::TOKEN, "http://" + Settings::REMOTE_SERVER_BASE_API_URL, 
                         Settings::AUTODETECT_ENDPOINT, Settings::DEBUG);
+
+    api.setMQTTClient(mqtt);
     std::thread api_thread([&api]() {
         std::cout << "Starting HTTP API server..." << std::endl;
         api.run(); 
