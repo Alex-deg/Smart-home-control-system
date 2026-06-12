@@ -131,7 +131,7 @@ int main(){
 
     std::thread wsThread(ws_server_thr, mqtt, std::ref(db), std::ref(sh), logger);
 
-    API api(db, logger, Settings::TOKEN, "http://" + Settings::REMOTE_SERVER_BASE_API_URL, 
+    API api(db, sh, logger, Settings::TOKEN, "http://" + Settings::REMOTE_SERVER_BASE_API_URL, 
                         Settings::AUTODETECT_ENDPOINT, Settings::DEBUG);
 
     api.setMQTTClient(mqtt);
