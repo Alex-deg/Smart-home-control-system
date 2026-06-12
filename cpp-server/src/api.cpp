@@ -1,7 +1,7 @@
 #include "../include/api.hpp"
 
-API::API(DataBase &_db, std::shared_ptr<liblog::Logger> _logger, const std::string &token, 
-         const std::string &baseURL, const std::string &endpoint, bool _debugFlag) : db(_db),
+API::API(DataBase &_db, ScenarioHandler &_sh, std::shared_ptr<liblog::Logger> _logger, const std::string &token, 
+         const std::string &baseURL, const std::string &endpoint, bool _debugFlag) : db(_db), sh(_sh), 
          logger(_logger), serverToken(token), baseRemoteApiUrl(baseURL), autodetectEndpoint(endpoint), debugFlag(_debugFlag) {}
 
 std::string generateUUID() {
@@ -165,7 +165,8 @@ crow::response API::autodetection(crow::json::rvalue input)
                 logger->error("API::autodetection(): HTTP error: " + std::to_string(result->status));
             }
         } else {
-            logger->error("API::autodetection(): Connection to server hasn't been established");
+            logger->warning("API::autodetection(): Connection to server hasn't been established");
+            logger->info("API::autodetection(): Module has been saved local");
         }        
     }
     catch(DataBaseException &e){
@@ -377,13 +378,18 @@ crow::response API::sendCommand(long long module_id, long long capability_id)
     return res;
 }
 
-crow::response API::addScenario(const std::string &name, const std::string &condition)
+crow::response API::addScenario(const std::string &name, const std::string &condition, 
+                                const std::vector<std::pair<long long, long long>>& modules_capabilities)
 {
     crow::response res;
     res.add_header("Content-Type", "application/json; charset=utf-8");
     json resp;
     try{
-        db.addScenario(name, condition);
+        long long scenario_id = db.addScenario(name, condition);
+        for (auto &&act : modules_capabilities){
+            db.addScenariosAct(scenario_id, db.getActID(act.first, act.second));
+        }
+        sh.addScenario(scenario_id, condition);
         resp["status"] = true;
         resp["message"] = "Сохранение сценария прошло успешно";
         logger->info("API::addScenario(): Adding scenario was successful");
@@ -569,15 +575,32 @@ void API::setupRoutes()
     .methods(crow::HTTPMethod::Post)
     ([this](const crow::request& req) {
         auto body = crow::json::load(req.body);
+        
         if (!body) {
             json resp;
             resp["status"] = false;
             resp["message"] = "Invalid JSON body";
             return crow::response(400, resp.dump(2));
         }
+        
+        if (!body.has("name") || !body.has("condition") || !body.has("acts")) {
+            json resp;
+            resp["status"] = false;
+            resp["message"] = "Missing fields: name, condition, acts";
+            return crow::response(400, resp.dump(2));
+        }
+        
         std::string name = body["name"].s();
         std::string condition = body["condition"].s();
-        return addScenario(name, condition);
+        
+        std::vector<std::pair<long long, long long>> modules_capabilities;
+        for (const auto& act : body["acts"]) {
+            if (act.has("module_id") && act.has("capability_id")) {
+                modules_capabilities.emplace_back(act["module_id"].i(), act["capability_id"].i());
+            }
+        }
+        
+        return addScenario(name, condition, modules_capabilities);
     });
 
 }

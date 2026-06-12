@@ -15,7 +15,7 @@ public:
                                                const std::string& message,
                                                int qos)>;
 
-    explicit API(DataBase &_db, std::shared_ptr<liblog::Logger> _logger, const std::string &token, 
+    explicit API(DataBase &_db, ScenarioHandler &_sh, std::shared_ptr<liblog::Logger> _logger, const std::string &token, 
                  const std::string &baseURL, const std::string &endpoint, bool _debugFlag);
     void run(int _port = 8080, bool multithreaded = true);
     void setMQTTClient(std::shared_ptr<MQTTClient> client);
@@ -28,6 +28,7 @@ private:
     std::string baseRemoteApiUrl;
     std::string autodetectEndpoint;
     CommandCallback mqttPublish;
+    ScenarioHandler &sh;
     bool debugFlag;
     struct PendingRequest {
         std::shared_ptr<std::promise<nlohmann::json>> promise;
@@ -64,7 +65,8 @@ private:
     crow::response deleteCapability(long long capability_id);
     crow::response unbindCapability(long long module_id, long long capability_id);
     crow::response sendCommand(long long module_id, long long capability_id);
-    crow::response addScenario(const std::string &name, const std::string &condition);
+    crow::response addScenario(const std::string &name, const std::string &condition, 
+                               const std::vector<std::pair<long long, long long>>& modules_capabilities);
     
     void set_on_command(CommandCallback cb);
 
