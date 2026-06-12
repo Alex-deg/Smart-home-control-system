@@ -75,6 +75,7 @@ void WebSocketClient::on_message(connection_hdl hdl, client::message_ptr msg) {
         json data = json::parse(payload);
         if(data["type"] == "command"){
             json payload;
+            payload["internet"] = true;
             payload["request_id"] = data["request_id"];
             payload["payload"] = data["params"]["payload"];
             m_mqtt_publish(data["params"]["mqtt_topic"], payload.dump(), 1);
