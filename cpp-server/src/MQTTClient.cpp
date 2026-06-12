@@ -295,6 +295,8 @@ void MQTTClient::reEvaluationScenarios(const std::string& param_name, double par
 
     std::vector<int> triggeredScenarios = scenarioHandler.updateParameter(param_name, param_value);
     logger->debug("MQTTCLient::reEvaluationScenarios(): List of triggered scenarios after param update has been received");
+    json message, actInfo;
+    message["request_id"] = "-1"; // stub, not good solution in general 
     for (auto &&tsID : triggeredScenarios){
         std::vector<long long> actIDs = db_.getScenariosActs(tsID);
         logger->debug("MQTTCLient::reEvaluationScenarios(): List of acts to be performed has been received");
@@ -302,17 +304,18 @@ void MQTTClient::reEvaluationScenarios(const std::string& param_name, double par
             if (auto res = HTTPClient->Get(get_act_info_endpoint + "/" + std::to_string(actID))) {
                 if (res->status == 200) {
                     std::string response = res->body;
-                    json actInfo = json::parse(response);
-                    json message;
-                    message["request_id"] = -1; // stub, not good solution in general
-                    message["payload"] = actInfo["command"];
-                    publish(actInfo["mqtt_topic"], message.dump(), 1);
+                    actInfo = json::parse(response);
+                    message["internet"] = true;
                 } else {
                     logger->error("MQTTCLient::reEvaluationScenarios(): HTTP error: " + std::to_string(res->status));
                 }
             } else {
                 logger->error("MQTTCLient::reEvaluationScenarios(): Connection to server hasn't been established");
+                actInfo = db_.getActInfo(actID);
+                message["internet"] = false;
             }
+            message["payload"] = actInfo["command"];
+            publish(actInfo["mqtt_topic"], message.dump(), 1);
         }
     }
     if (triggeredScenarios.size() > 0)
