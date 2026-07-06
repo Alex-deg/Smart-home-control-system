@@ -1,40 +1,40 @@
-import sqlite3
-import json
-from typing import Any, List, Dict, Tuple, Union, Optional
+from typing import List, Dict, Union, Optional
 from dataclasses import dataclass, field
 from contextlib import contextmanager
+import sqlite3
+import json
 
 SQLValue = Union[str, int, float, None]
-
 
 class DataBaseException(Exception):
     pass
 
 @dataclass
 class QueryResult:
-    rows: List[List[SQLValue]] = field(default_factory=list)
-    column_names: List[str] = field(default_factory=list)
+
+    _rows: List[List[SQLValue]] = field(default_factory=list)
+    _column_names: List[str] = field(default_factory=list)
     
     def empty(self) -> bool:
-        return len(self.rows) == 0
+        return len(self._rows) == 0
     
     def size(self) -> int:
-        return len(self.rows)
+        return len(self._rows)
     
     def get(self, row: int, col: Union[int, str]) -> SQLValue:
-        if row < 0 or row >= len(self.rows):
-            raise IndexError(f"Row {row} out of range (0-{len(self.rows)-1})")
+        if row < 0 or row >= len(self._rows):
+            raise IndexError(f"Row {row} out of range (0-{len(self._rows)-1})")
         
         if isinstance(col, int):
-            if col < 0 or col >= len(self.rows[row]):
-                raise IndexError(f"Column {col} out of range (0-{len(self.rows[row])-1})")
-            return self.rows[row][col]
+            if col < 0 or col >= len(self._rows[row]):
+                raise IndexError(f"Column {col} out of range (0-{len(self._rows[row])-1})")
+            return self._rows[row][col]
         
         elif isinstance(col, str):
-            if col not in self.column_names:
+            if col not in self._column_names:
                 raise DataBaseException(f"Column not found: {col}")
-            col_idx = self.column_names.index(col)
-            return self.rows[row][col_idx]
+            col_idx = self._column_names.index(col)
+            return self._rows[row][col_idx]
         
         else:
             raise TypeError(f"col must be int or str, got {type(col)}")
@@ -64,13 +64,13 @@ class QueryResult:
             return default
     
     def to_dict_list(self) -> List[Dict[str, SQLValue]]:
-        if not self.column_names:
+        if not self._column_names:
             return []
         
         result = []
-        for row in self.rows:
+        for row in self._rows:
             row_dict = {}
-            for i, col_name in enumerate(self.column_names):
+            for i, col_name in enumerate(self._column_names):
                 row_dict[col_name] = row[i] if i < len(row) else None
             result.append(row_dict)
         return result
@@ -79,7 +79,7 @@ class QueryResult:
         return json.dumps(self.to_dict_list(), indent=indent, default=str)
     
     def __repr__(self) -> str:
-        return f"QueryResult(rows={len(self.rows)}, cols={len(self.column_names)})"
+        return f"QueryResult(rows={len(self._rows)}, cols={len(self._column_names)})"
 
 class IDataBase:
     
@@ -137,7 +137,7 @@ class IDataBase:
                 cursor.execute(sql)
             
             if cursor.description:
-                result.column_names = [col[0] for col in cursor.description]
+                result._column_names = [col[0] for col in cursor.description]
             
             rows = cursor.fetchall()
             for row in rows:
@@ -149,7 +149,7 @@ class IDataBase:
                         row_list.append(value.decode('utf-8'))
                     else:
                         row_list.append(str(value))
-                result.rows.append(row_list)
+                result._rows.append(row_list)
             
             cursor.close()
             
@@ -201,8 +201,9 @@ class Database(IDataBase):
         sql = (
             "CREATE TABLE users ( " 
             "    id INTEGER PRIMARY KEY AUTOINCREMENT, "
-            "    login TEXT NOT NULL, "
-            "    password TEXT NOT NULL "
+            "    login TEXT NOT NULL UNIQUE, "
+            "    password TEXT NOT NULL, "
+            "    is_auth BOOLEAN DEFAULT FALSE NOT NULL "
             ");"
             )
         self.execute_request(sql)
@@ -321,13 +322,23 @@ class Database(IDataBase):
         self.execute_request(sql, [user_id, server_id])
 
     def add_module(self, server_id, name, alias, 
-                         mqtt_topic, description = ""):
+                         mqtt_topic, description = "") -> int:
         # Добавление в таблицу modules
         sql = (
             "INSERT INTO modules(server_id, name, alias, mqtt_topic, description) " 
             "VALUES (?, ?, ?, ?, ?);"
         )
         self.execute_request(sql, [server_id, name, alias, mqtt_topic, description])
+        sql = (
+            "SELECT " 
+            "    id " 
+            "FROM modules " 
+            "ORDER BY id DESC " 
+            "LIMIT 1; "
+        )
+        response = self.execute_query(sql)
+        module_id = response.get_int(0, "id")
+        return module_id
 
     def add_capability(self, module_id, name):
         # Проверка на уже существующие функции
@@ -382,7 +393,7 @@ class Database(IDataBase):
         )
         response = self.execute_query(sql, [server_id])
         for i in range(response.size()):
-            module_id = response.get_int(i, "module_id")
+            module_id = response.get_int(i, "id")
             self.delete_module_from_tables(module_id)
         # Удаление из таблицы с серверами
         sql = (
@@ -553,7 +564,24 @@ class Database(IDataBase):
         capability_info["name"] = response.get_str(0, "name")
         return capability_info
     
-    def check_auth(self, login, password):
+    def get_act_info(self, actID) -> List:
+        sql = (
+            "SELECT " 
+            "    m.mqtt_topic, "
+            "    c.name  "
+            "FROM modules_capabilities mc "
+            "JOIN modules m ON mc.module_id = m.id "
+            "JOIN capabilities c ON mc.capability_id = c.id "
+            "WHERE mc.id = ?; "
+        )
+        act = {}
+        response = self.execute_query(sql, [actID])
+        for i in range(response.size()):
+            act["mqtt_topic"] = response.get_str(i, "mqtt_topic")
+            act["command"] = response.get_str(i, "name")
+        return act
+
+    def auth(self, login : str, password : str):
         sql = (
             "SELECT " 
             "    id, "
@@ -561,21 +589,103 @@ class Database(IDataBase):
             "    password "
             "FROM users WHERE login = ?;"
         )
-        response = response = self.execute_query(sql, [login])
+        response = self.execute_query(sql, [login])
 
         if response.size() == 0:
             return False, -1
         if response.get_str(0, "password") != password:
             return False, -1
 
+        sql = (
+            "UPDATE users "
+            "SET is_auth = TRUE "
+            "WHERE id = ?;"
+        )
+        self.execute_request(sql, [response.get_int(0, "id")])
         return True, response.get_int(0, "id")
+
+    def check_auth(self, user_id : int) -> bool:
+        sql = (
+            "SELECT "
+            "    is_auth "
+            "FROM users "
+            "WHERE id = ?;"
+        )
+        response = self.execute_query(sql, [user_id])
+        if response.get_int(0, "is_auth") == 1:
+            return True
+        return False
+
+    def get_user_id_by_act_id(self, act_id : int) -> int:
+        sql = (
+            "SELECT "
+            "    module_id "
+            "FROM modules_capabilities "
+            "WHERE id = ?;"
+        )
+        response = self.execute_query(sql, [act_id])
+        sql = (
+            "SELECT "
+            "    server_id "
+            "FROM modules "
+            "WHERE id = ?;"
+        )
+        response = self.execute_query(sql, [response.get_int(0, "module_id")])
+        sql = (
+            "SELECT "
+            "    user_id "
+            "FROM users_servers "
+            "WHERE server_id = ?;"
+        )
+        response = self.execute_query(sql, [response.get_int(0, "server_id")])
+        if response.size() > 0:
+            return response.get_int(0, "user_id")
+        return -1
+
+    def get_user_id_by_server_id(self, server_id : int) -> int:
+        sql = (
+            "SELECT "
+            "    user_id "
+            "FROM users_servers "
+            "WHERE server_id = ?;"
+        )
+        response = self.execute_query(sql, [server_id])
+        return response.get_int(0, "user_id")
+
+    def get_server_id_by_token(self, token :str):
+        sql = (
+            "SELECT "
+            "    id "
+            "FROM servers "
+            "WHERE token = ?;"
+        )
+        response = self.execute_query(sql, [token])
+        if response.size() > 0:
+            return response.get_int(0, "id")
+        return -1
+
+    def is_server_exist(self, token : str) -> bool:
+        sql = (
+            "SELECT "
+            "    id "
+            "FROM servers "
+            "WHERE token = ?;"
+        )
+        response =self.execute_query(sql, [token])
+        return response.size() > 0
+
+    def is_module_exist(self, server_id : int, topic : str) -> int:
+        sql = (
+            "SELECT "
+            "    id "
+            "FROM modules "
+            "WHERE server_id = ? AND mqtt_topic = ?;"
+        )
+        response = self.execute_query(sql, [server_id, topic])
+        if response.size() > 0:
+            return response.get_int(0, "id")
+        return -1
 
     def delete_table_by_name(self, name : str):
         sql = "DROP TABLE " + name
         self.execute_request(sql)
-
-# if __name__ == "__main__":
-#     db = Database("Data/users_database.db")
-#     db.clear_servers_table()
-#     db.clear_capabilities_table()
-    

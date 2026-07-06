@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Управление умным домом — локальный сервер</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
+            background: #f0f4f8;
+            margin: 0;
+            padding: 20px;
+            color: #1e2a3a;
+        }
+        h1 {
+            text-align: center;
+            font-weight: 600;
+            margin-bottom: 0.25em;
+        }
+        .sub {
+            text-align: center;
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 0.9rem;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+            gap: 24px;
+        }
+        .card {
+            background: white;
+            border-radius: 24px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+            padding: 20px 24px;
+            transition: 0.2s;
+            border: 1px solid #e2e8f0;
+        }
+        .full-width {
+            grid-column: span 2;
+        }
+        .card h2 {
+            margin-top: 0;
+            font-size: 1.4rem;
+            border-left: 4px solid #3b82f6;
+            padding-left: 12px;
+            color: #0f172a;
+        }
+        .card h3 {
+            font-size: 1rem;
+            margin: 16px 0 8px 0;
+            color: #334155;
+        }
+        .form-group {
+            margin-bottom: 14px;
+        }
+        label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 4px;
+            font-size: 0.8rem;
+            color: #475569;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #cbd5e1;
+            border-radius: 14px;
+            font-size: 0.9rem;
+            transition: 0.2s;
+            background: #fff;
+        }
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59,130,246,0.2);
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 40px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: 0.2s;
+            margin-top: 4px;
+            font-size: 0.85rem;
+        }
+        button:hover {
+            background: #2563eb;
+            transform: translateY(-1px);
+        }
+        .btn-danger {
+            background: #ef4444;
+        }
+        .btn-danger:hover {
+            background: #dc2626;
+        }
+        .btn-sm {
+            padding: 4px 12px;
+            font-size: 0.75rem;
+        }
+        .flex {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .response-area {
+            background: #f8fafc;
+            border-radius: 16px;
+            padding: 12px;
+            margin-top: 14px;
+            font-family: monospace;
+            font-size: 0.75rem;
+            white-space: pre-wrap;
+            word-break: break-word;
+            border: 1px solid #e2e8f0;
+            max-height: 200px;
+            overflow: auto;
+        }
+        hr {
+            margin: 20px 0;
+            border: none;
+            border-top: 1px solid #e2e8f0;
+        }
+        .badge {
+            background: #e2e8f0;
+            padding: 2px 8px;
+            border-radius: 30px;
+            font-size: 0.7rem;
+            color: #1e293b;
+        }
+        .row {
+            display: flex;
+            gap: 12px;
+            align-items: flex-end;
+        }
+        .row .form-group {
+            flex: 1;
+        }
+        .acts-container {
+            background: #f8fafc;
+            border-radius: 16px;
+            padding: 10px;
+            margin-top: 8px;
+            border: 1px solid #e2e8f0;
+            max-height: 110px;
+            overflow-y: auto;
+        }
+        .act-chip {
+            background: #e2e8f0;
+            border-radius: 20px;
+            padding: 4px 12px;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin: 4px 6px 4px 0;
+            font-size: 0.8rem;
+        }
+        .act-chip button {
+            background: #ef4444;
+            padding: 0px 8px;
+            font-size: 0.7rem;
+            margin: 0;
+            border-radius: 30px;
+        }
+        @media (max-width: 700px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+            .full-width {
+                grid-column: span 1;
+            }
+        }
+    </style>
+</head>
+<body>
+<h1>🏠 Управление умным домом</h1>
+<div class="sub">Локальный API</div>
+
+<div class="container">
+    <!-- БЛОК МОДУЛЕЙ -->
+    <div class="card">
+        <h2>📦 Модули</h2>
+        <div class="form-group">
+            <label>Список модулей</label>
+            <div class="flex">
+                <button id="btnLoadModules" style="background:#475569;">Обновить</button>
+                <select id="moduleSelect" style="flex:1"></select>
+            </div>
+        </div>
+        <div id="modulesList" class="response-area">Нажмите "Обновить"</div>
+
+        <h3>➕ Добавить модуль</h3>
+        <div class="form-group"><input type="text" id="modName" placeholder="name (обязательно)"></div>
+        <div class="form-group"><input type="text" id="modAlias" placeholder="alias (обязательно)"></div>
+        <div class="form-group"><input type="text" id="modTopic" placeholder="mqtt_topic (обязательно)"></div>
+        <div class="form-group"><input type="text" id="modDesc" placeholder="description (необязательно)"></div>
+        <button id="btnAddModule">➕ Добавить модуль</button>
+
+        <h3>🗑️ Удалить модуль</h3>
+        <div class="flex">
+            <select id="deleteModuleSelect" style="flex:1"></select>
+            <button id="btnDeleteModule" class="btn-danger">Удалить выбранный</button>
+        </div>
+    </div>
+
+    <!-- БЛОК ВОЗМОЖНОСТЕЙ (capabilities) -->
+    <div class="card">
+        <h2>⚙️ Возможности</h2>
+        <div class="form-group">
+            <label>Выберите модуль</label>
+            <select id="capModuleSelect"></select>
+            <button id="btnLoadCaps" style="margin-top:6px;">Загрузить возможности</button>
+        </div>
+        <div id="capsList" class="response-area">Выберите модуль и нажмите "Загрузить"</div>
+
+        <h3>➕ Добавить возможность</h3>
+        <div class="row">
+            <div class="form-group" style="flex:2">
+                <select id="addCapModuleSelect"></select>
+            </div>
+            <div class="form-group" style="flex:3">
+                <input type="text" id="capName" placeholder="Название (например, turn_on)">
+            </div>
+            <button id="btnAddCapability">Добавить</button>
+        </div>
+
+        <h3>🗑️ Удалить возможность</h3>
+        <div class="row">
+            <div class="form-group" style="flex:2"><select id="delCapModuleSelect"></select></div>
+            <div class="form-group" style="flex:3"><select id="delCapSelect"></select></div>
+            <button id="btnDeleteCapability" class="btn-danger">Удалить</button>
+        </div>
+
+        <h3>🔗 Отвязать возможность от модуля (unbind)</h3>
+        <div class="row">
+            <div class="form-group" style="flex:2"><select id="unbindModuleSelect"></select></div>
+            <div class="form-group" style="flex:3"><select id="unbindCapSelect"></select></div>
+            <button id="btnUnbindCap">Отвязать</button>
+        </div>
+    </div>
+
+    <!-- БЛОК ОТПРАВКИ КОМАНД -->
+    <div class="card">
+        <h2>🎮 Отправить команду</h2>
+        <div class="form-group">
+            <label>Модуль</label>
+            <select id="cmdModuleSelect"></select>
+        </div>
+        <div class="form-group">
+            <label>Возможность (команда)</label>
+            <select id="cmdCapSelect"></select>
+        </div>
+        <button id="btnSendCommand">🚀 Отправить команду</button>
+        <div id="cmdResponse" class="response-area">Ответ появится здесь</div>
+    </div>
+
+    <!-- БЛОК СЦЕНАРИЕВ (полная ширина) -->
+    <div class="card full-width">
+        <h2>📜 Сценарии</h2>
+        <div class="row">
+            <div class="form-group" style="flex:1;">
+                <label>Название сценария</label>
+                <input type="text" id="scenarioName" placeholder="Например: Жарко и сухо">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Условие (выражение)</label>
+            <textarea rows="2" id="scenarioCondition" placeholder='(temperature > 25 AND humidity < 40) OR motion == 1'></textarea>
+        </div>
+        <div class="form-group">
+            <label>Действия (модуль → действие)</label>
+            <div class="flex" style="gap: 8px;">
+                <select id="scenarioActModule" style="flex:2">
+                    <option value="">-- выберите модуль --</option>
+                </select>
+                <select id="scenarioActCapability" style="flex:3">
+                    <option value="">-- выберите действие --</option>
+                </select>
+                <button id="btnAddActToList" style="background:#475569;">➕ Добавить</button>
+            </div>
+            <div id="actsList" class="acts-container">
+                <span style="color:#64748b;">Нет добавленных действий</span>
+            </div>
+        </div>
+        <button id="btnAddScenario">📎 Добавить сценарий</button>
+        <div id="scenarioResponse" class="response-area"></div>
+    </div>
+</div>
+
+<script>
+    const BASE_URL = 'http://localhost:8080';
+
+    async function apiFetch(endpoint, options = {}) {
+        const url = `${BASE_URL}${endpoint}`;
+        const defaultHeaders = { 'Content-Type': 'application/json' };
+        const config = {
+            ...options,
+            headers: { ...defaultHeaders, ...options.headers },
+        };
+        try {
+            const response = await fetch(url, config);
+            let text = await response.text();
+            let data = null;
+            try { data = JSON.parse(text); } catch(e) { data = text; }
+            return { ok: response.ok, status: response.status, data };
+        } catch (err) {
+            return { ok: false, status: 0, data: { error: err.message } };
+        }
+    }
+
+    // --- Глобальные данные для действий сценария ---
+    let selectedActs = [];
+
+    function updateActsListUI() {
+        const container = document.getElementById('actsList');
+        if (!container) return;
+        if (selectedActs.length === 0) {
+            container.innerHTML = '<span style="color:#64748b;">Нет добавленных действий</span>';
+            return;
+        }
+        let html = '<div style="display:flex; flex-wrap:wrap;">';
+        selectedActs.forEach((act, idx) => {
+            html += `<div class="act-chip">
+                        🔧 ${act.module_name} → ${act.capability_name}
+                        <button onclick="removeAct(${idx})">✖</button>
+                     </div>`;
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    window.removeAct = function(index) {
+        selectedActs.splice(index, 1);
+        updateActsListUI();
+    };
+
+    async function addActToList() {
+        const moduleSelect = document.getElementById('scenarioActModule');
+        const capSelect = document.getElementById('scenarioActCapability');
+        const moduleId = moduleSelect.value;
+        const moduleName = moduleSelect.options[moduleSelect.selectedIndex]?.text || '';
+        const capId = capSelect.value;
+        const capName = capSelect.options[capSelect.selectedIndex]?.text || '';
+        if (!moduleId || !capId) {
+            alert('Выберите модуль и действие');
+            return;
+        }
+        selectedActs.push({
+            module_id: parseInt(moduleId),
+            capability_id: parseInt(capId),
+            module_name: moduleName,
+            capability_name: capName
+        });
+        updateActsListUI();
+        capSelect.value = '';
+    }
+
+    // --- Загрузка модулей во все селекты ---
+    async function loadAllModules() {
+        const res = await apiFetch('/api/modules');
+        let modules = [];
+        if (res.ok && Array.isArray(res.data)) modules = res.data;
+        else if (res.ok && typeof res.data === 'object') modules = Object.values(res.data);
+        
+        const selects = [
+            'moduleSelect', 'deleteModuleSelect', 'capModuleSelect', 'addCapModuleSelect',
+            'delCapModuleSelect', 'unbindModuleSelect', 'cmdModuleSelect', 'scenarioActModule'
+        ];
+        selects.forEach(id => {
+            const sel = document.getElementById(id);
+            if (sel) {
+                sel.innerHTML = '<option value="">-- выберите модуль --</option>';
+                modules.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.id;
+                    opt.textContent = `${m.name} (id:${m.id}) - ${m.alias || ''}`;
+                    sel.appendChild(opt);
+                });
+            }
+        });
+        const modulesDiv = document.getElementById('modulesList');
+        if (modulesDiv) modulesDiv.innerText = JSON.stringify(modules, null, 2);
+        return modules;
+    }
+
+    // --- Загрузка возможностей для конкретного селекта ---
+    async function loadCapabilitiesForModule(moduleId, targetSelectId) {
+        if (!moduleId) return [];
+        const res = await apiFetch(`/api/modules/${moduleId}/capabilities`);
+        let caps = [];
+        if (res.ok && Array.isArray(res.data)) caps = res.data;
+        const sel = document.getElementById(targetSelectId);
+        if (sel) {
+            sel.innerHTML = '<option value="">-- выберите возможность --</option>';
+            caps.forEach(c => {
+                const opt = document.createElement('option');
+                opt.value = c.id;
+                opt.textContent = `${c.name} (id:${c.id})`;
+                sel.appendChild(opt);
+            });
+        }
+        return caps;
+    }
+
+    // --- Обработчики событий ---
+    document.getElementById('btnLoadModules')?.addEventListener('click', () => loadAllModules());
+    document.getElementById('btnAddModule')?.addEventListener('click', async () => {
+        const name = document.getElementById('modName').value.trim();
+        const alias = document.getElementById('modAlias').value.trim();
+        const mqtt_topic = document.getElementById('modTopic').value.trim();
+        const description = document.getElementById('modDesc').value.trim();
+        if (!name || !alias || !mqtt_topic) { alert('Заполните name, alias, mqtt_topic'); return; }
+        const body = { name, alias, mqtt_topic, description };
+        const res = await apiFetch('/api/modules/add', { method: 'POST', body: JSON.stringify(body) });
+        alert(res.ok ? 'Модуль добавлен' : `Ошибка: ${JSON.stringify(res.data)}`);
+        if (res.ok) loadAllModules();
+    });
+
+    document.getElementById('btnDeleteModule')?.addEventListener('click', async () => {
+        const moduleId = document.getElementById('deleteModuleSelect').value;
+        if (!moduleId) { alert('Выберите модуль'); return; }
+        if (!confirm('Удалить модуль?')) return;
+        const res = await apiFetch(`/api/modules/${moduleId}/delete`, { method: 'DELETE' });
+        alert(res.ok ? 'Модуль удалён' : `Ошибка: ${JSON.stringify(res.data)}`);
+        if (res.ok) loadAllModules();
+    });
+
+    document.getElementById('btnLoadCaps')?.addEventListener('click', async () => {
+        const moduleId = document.getElementById('capModuleSelect').value;
+        if (!moduleId) { alert('Выберите модуль'); return; }
+        const caps = await loadCapabilitiesForModule(moduleId, null);
+        const capsDiv = document.getElementById('capsList');
+        if (capsDiv) capsDiv.innerText = JSON.stringify(caps, null, 2);
+    });
+
+    document.getElementById('btnAddCapability')?.addEventListener('click', async () => {
+        const moduleId = document.getElementById('addCapModuleSelect').value;
+        const name = document.getElementById('capName').value.trim();
+        if (!moduleId || !name) { alert('Выберите модуль и введите название'); return; }
+        const body = { module_id: parseInt(moduleId), name };
+        const res = await apiFetch('/api/modules/capabilities/add', { method: 'POST', body: JSON.stringify(body) });
+        alert(res.ok ? 'Возможность добавлена' : `Ошибка: ${JSON.stringify(res.data)}`);
+        if (res.ok) {
+            loadCapabilitiesForModule(moduleId, 'delCapSelect');
+            loadCapabilitiesForModule(moduleId, 'unbindCapSelect');
+            loadCapabilitiesForModule(moduleId, 'cmdCapSelect');
+            const capDiv = document.getElementById('capsList');
+            if (capDiv && document.getElementById('capModuleSelect').value == moduleId)
+                capDiv.innerText = 'Обновите список, нажав "Загрузить возможности"';
+        }
+    });
+
+    document.getElementById('btnDeleteCapability')?.addEventListener('click', async () => {
+        const moduleId = document.getElementById('delCapModuleSelect').value;
+        const capId = document.getElementById('delCapSelect').value;
+        if (!moduleId || !capId) { alert('Выберите модуль и возможность'); return; }
+        if (!confirm('Удалить возможность? Она отвяжется от всех модулей.')) return;
+        const res = await apiFetch(`/api/modules/${moduleId}/capabilities/${capId}/delete`, { method: 'DELETE' });
+        alert(res.ok ? 'Возможность удалена' : `Ошибка: ${JSON.stringify(res.data)}`);
+        if (res.ok) {
+            loadCapabilitiesForModule(moduleId, 'delCapSelect');
+            loadCapabilitiesForModule(moduleId, 'unbindCapSelect');
+            loadCapabilitiesForModule(moduleId, 'cmdCapSelect');
+        }
+    });
+
+    document.getElementById('btnUnbindCap')?.addEventListener('click', async () => {
+        const moduleId = document.getElementById('unbindModuleSelect').value;
+        const capId = document.getElementById('unbindCapSelect').value;
+        if (!moduleId || !capId) { alert('Выберите модуль и возможность'); return; }
+        const res = await apiFetch(`/api/modules/${moduleId}/capabilities/${capId}/unbind`, { method: 'POST' });
+        alert(res.ok ? 'Возможность отвязана' : `Ошибка: ${JSON.stringify(res.data)}`);
+        if (res.ok) {
+            loadCapabilitiesForModule(moduleId, 'unbindCapSelect');
+            loadCapabilitiesForModule(moduleId, 'cmdCapSelect');
+        }
+    });
+
+    document.getElementById('btnSendCommand')?.addEventListener('click', async () => {
+        const moduleId = document.getElementById('cmdModuleSelect').value;
+        const capId = document.getElementById('cmdCapSelect').value;
+        if (!moduleId || !capId) { alert('Выберите модуль и команду'); return; }
+        const res = await apiFetch(`/api/modules/${moduleId}/capability/${capId}/send_command`, { method: 'POST' });
+        const respDiv = document.getElementById('cmdResponse');
+        respDiv.innerText = res.ok ? JSON.stringify(res.data, null, 2) : `Ошибка: ${JSON.stringify(res.data)}`;
+    });
+
+    document.getElementById('btnAddActToList')?.addEventListener('click', addActToList);
+    document.getElementById('btnAddScenario')?.addEventListener('click', async () => {
+        const name = document.getElementById('scenarioName').value.trim();
+        const condition = document.getElementById('scenarioCondition').value.trim();
+        if (!name || !condition) { alert('Укажите название и условие'); return; }
+        if (selectedActs.length === 0) { alert('Добавьте хотя бы одно действие'); return; }
+        const acts = selectedActs.map(act => ({ module_id: act.module_id, capability_id: act.capability_id }));
+        const body = { name, condition, acts };
+        const res = await apiFetch('/api/add_scenario', { method: 'POST', body: JSON.stringify(body) });
+        const respDiv = document.getElementById('scenarioResponse');
+        if (res.ok) {
+            respDiv.innerText = JSON.stringify(res.data, null, 2);
+            document.getElementById('scenarioName').value = '';
+            document.getElementById('scenarioCondition').value = '';
+            selectedActs = [];
+            updateActsListUI();
+            document.getElementById('scenarioActCapability').innerHTML = '<option value="">-- выберите действие --</option>';
+        } else {
+            respDiv.innerText = `Ошибка: ${JSON.stringify(res.data)}`;
+        }
+    });
+
+    // Динамическая подгрузка возможностей при смене модуля в разных селекторах
+    function bindCascade(moduleSelectId, targetSelectId) {
+        const moduleSelect = document.getElementById(moduleSelectId);
+        if (!moduleSelect) return;
+        moduleSelect.addEventListener('change', () => {
+            const mid = moduleSelect.value;
+            if (mid && targetSelectId) loadCapabilitiesForModule(mid, targetSelectId);
+            else if (targetSelectId) {
+                const sel = document.getElementById(targetSelectId);
+                if (sel) sel.innerHTML = '<option value="">-- выберите возможность --</option>';
+            }
+        });
+    }
+    bindCascade('delCapModuleSelect', 'delCapSelect');
+    bindCascade('unbindModuleSelect', 'unbindCapSelect');
+    bindCascade('cmdModuleSelect', 'cmdCapSelect');
+    bindCascade('scenarioActModule', 'scenarioActCapability');
+
+    // Инициализация
+    loadAllModules();
+</script>
+</body>
+</html>

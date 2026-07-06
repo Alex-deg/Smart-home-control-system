@@ -1,0 +1,6 @@
+*.vscode
+*env*
+*build*
+*config*
+*Data*
+*__pycache__*

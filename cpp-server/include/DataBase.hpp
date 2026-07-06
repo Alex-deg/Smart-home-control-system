@@ -1,0 +1,118 @@
+#pragma once
+
+#include <nlohmann/json.hpp>
+#include <sqlite3.h>
+#include <iostream>
+#include <variant>
+#include <string>
+#include <vector>
+
+using json = nlohmann::json;
+using SQLValue = std::variant<std::string, int, double, long long>;
+
+class DataBaseException : public std::runtime_error{
+public:
+    DataBaseException(const std::string &msg) : std::runtime_error(msg) {}
+};
+
+class QueryResult {
+public:
+    std::vector<std::vector<SQLValue>> rows;
+    std::vector<std::string> columnNames;
+    
+    bool empty() const;
+    size_t size() const;
+    
+    template<typename T>
+    T get(size_t row, size_t col) const {
+        return std::get<T>(rows[row][col]);
+    }
+
+    template<typename T>
+    T get(size_t row, const std::string& columnName) const {
+        auto it = std::find(columnNames.begin(), columnNames.end(), columnName);
+        if (it == columnNames.end()) {
+            throw std::runtime_error("Column not found: " + columnName);
+        }
+        size_t col = std::distance(columnNames.begin(), it);
+        return get<T>(row, col);
+    }
+};
+
+class IDataBase{
+    sqlite3 *db = nullptr;
+protected:
+    void executeRequest(const std::string &sql);
+    void executeRequest(const std::string& sql, 
+                        const std::vector<SQLValue>& params);
+    QueryResult executeQuery(const std::string& sql,
+                             const std::vector<SQLValue>& params = {});
+public:
+    IDataBase() = default;
+    explicit IDataBase(const std::string &path_to_database);
+    ~IDataBase();
+
+    void open(const std::string &path_to_database);
+    bool isOpen() const;
+    void close();
+    bool isTableExists(const std::string& table_name);
+    void vacuum();
+};
+
+class DataBase : public IDataBase{
+public:
+
+    void createTelemetryTable();
+    void createScenariosTable();
+    void createModuleParamsTable();
+    void createScenariosActsTable();
+    void createModulesTable();
+    void createCapabilitiesTable();
+    void createModulesCapabilitiesTable();
+
+    void deleteTelemetryTable();
+    void deleteScenariosTable();
+    void deleteModuleParamsTable();
+    void deleteScenariosActsTable();
+
+    void clearTelemetryTable();
+    void clearScenariosTable();
+    void clearModuleParamsTable();
+    void clearScenariosActsTable();
+    void clearModulesTable();
+    void clearCapabilitiesTable();
+    void clearModulesCapabilitiesTable();
+
+    void addTelemetry(long long module_id, const std::string& param_name,
+                      double param_value, int timestamp, const std::string& meas_unit = "");
+    void addModuleParams(long long module_id, double module_temp, int free_bytes,
+                         int timestamp, bool anomaly = false);
+    void addScenariosAct(long long scenario_id, long long act_id);
+    long long addScenario(const std::string& name, const std::string& condition);
+    long long addModule(const std::string& name, const std::string& alias, 
+                        const std::string& mqtt_topic, const std::string& description = "");
+    void addCapability(long long module_id, const std::string& name);
+    void addModulesCapabilities(long long module_id, long long capability_id);
+
+    void deleteModuleFromTables(long long module_id);
+    void deleteCapabilityFromTables(long long capability_id);
+    void unbindModuleCapability(long long module_id, long long capability_id);
+
+    std::vector<json> getTelemtry(long long module_id, const std::string& param_name,
+                                  int time_interval);
+    std::vector<json> getModuleParams(long long module_id, int time_interval, bool with_anomalies);
+    std::vector<json> getUniqueModuleIDs();
+    std::vector<long long> getScenariosActs(long long scenario_id);
+    std::vector<json> getModules();
+    std::vector<json> getCapabilities(long long module_id);
+    json getModuleInfo(long long module_id);
+    json getCapabilityInfo(long long capability_id);
+    long long getActID(long long module_id, long long capability_id);
+    json getActInfo(long long actID);
+    long long isModuleExist(const std::string& topic);
+
+    void anomalyTagging(std::vector<long long> record_ids);
+
+    void deleteTableByName(const std::string& name);
+
+};

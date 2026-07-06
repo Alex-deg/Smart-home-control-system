@@ -9,18 +9,28 @@ find_package(Boost REQUIRED COMPONENTS system thread)
 
 set(
     HEADER
-    ./src/database/DataBase.h
-    ./src/mqtt/MQTTClient.h
-    ./src/api/api.h
+    include/api.hpp
+    include/ASTNodes.hpp
+    include/DataBase.hpp
+    include/JSONHandler.hpp
+    include/MQTTClient.hpp
+    include/ScenarioHandler.hpp
+    include/ScenarioParser.hpp
+    include/ws.hpp
+    ../SIMPLE_LOGGER/liblogger/Logger.h
 )
 
 set(
     SOURCE
-    ./src/database/DataBase.cpp
-    ./src/main.cpp
-    ./src/ws/ws.cpp
-    ./src/mqtt/MQTTClient.cpp
-    ./src/api/api.cpp
+    src/api.cpp
+    src/ASTNodes.cpp
+    src/DataBase.cpp
+    src/MQTTClient.cpp
+    src/ScenarioHandler.cpp
+    src/ScenarioParser.cpp
+    src/ws.cpp
+    ../SIMPLE_LOGGER/liblogger/Logger.cpp
+    main.cpp
 )
 
 find_package(SQLite3 REQUIRED)
